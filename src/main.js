@@ -1,6 +1,7 @@
 import { rand, sleep } from './anim.js';
 import { hexToRgb, sequence } from './color.js';
 import { buildPalette } from './palette.js';
+import { imagesFrom } from './paste.js';
 import { createQueue } from './queue.js';
 import { CHIPS, cardCells, cardPng, chipAt, fitCardCells, layout, paintTwinkle, renderCard, twinkleCells } from './card.js';
 import { clickIntent, createCarousel } from './carousel.js';
@@ -325,6 +326,14 @@ addEventListener('drop', (e) => {
   e.preventDefault();
   document.body.classList.remove('dragging');
   addImages([...e.dataTransfer.files]);
+});
+
+// Only a paste that carries images is taken over, so pasting text into the name field still works.
+addEventListener('paste', (e) => {
+  const images = imagesFrom(e.clipboardData);
+  if (!images.length) return;
+  e.preventDefault();
+  addImages(images);
 });
 
 const repaint = () => { document.querySelectorAll('.card.palette').forEach(paintCard); syncTwinkle(); };
