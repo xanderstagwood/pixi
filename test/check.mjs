@@ -248,3 +248,4 @@ globalThis.cancelAnimationFrame ??= clearTimeout;
 }
 
 console.log('ok');
+import './01-palette.mjs';
