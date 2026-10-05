@@ -3,7 +3,7 @@ import { hexToRgb, sequence } from './color.js';
 import { buildPalette } from './palette.js';
 import { createQueue } from './queue.js';
 import { CHIPS, cardCells, cardPng, chipAt, fitCardCells, layout, paintTwinkle, renderCard, twinkleCells } from './card.js';
-import { createCarousel } from './carousel.js';
+import { clickIntent, createCarousel } from './carousel.js';
 import { holdButton } from './hold.js';
 import { center, unit, watchPixelSnap } from './pixel.js';
 import { createStage } from './stage.js';
@@ -300,9 +300,10 @@ track.addEventListener('click', (e) => {
   const card = e.target.closest('.card');
   if (!card) return;
   const i = [...track.children].indexOf(card);
-  if (i !== carousel.index) return go(i);
-  if (card === carousel.add) return $('file').click();
-  if (e.target.closest('canvas')) copyChip(card, e);
+  const intent = clickIntent({ isAdd: card === carousel.add, isFocused: i === carousel.index, onCanvas: !!e.target.closest('canvas') });
+  if (intent === 'new') $('file').click();
+  else if (intent === 'focus') go(i);
+  else if (intent === 'copy') copyChip(card, e);
 });
 
 addEventListener('keydown', (e) => {

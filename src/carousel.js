@@ -3,6 +3,17 @@ import { EASE, slideOut } from './anim.js';
 const icon = (name) => `<span class="icon icon--${name}"></span>`;
 
 /**
+ * What a click on a card means. The "+" card starts a palette at once, even from a distance, so a
+ * newcomer is not made to click twice; a palette card must be focused before it can copy a chip.
+ * @returns {'new' | 'focus' | 'copy' | 'none'}
+ */
+export function clickIntent({ isAdd, isFocused, onCanvas }) {
+  if (isAdd) return 'new';
+  if (!isFocused) return 'focus';
+  return onCanvas ? 'copy' : 'none';
+}
+
+/**
  * Horizontal card track. The focused card is locked to the viewport center; the rest
  * sit either side. The blank "+" card is always last. Focus moves by setting --i on the
  * track and letting CSS transition the transform.
