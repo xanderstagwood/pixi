@@ -3,8 +3,8 @@
  * a little snarky, and never explaining how anything is done: magic, not machinery.
  *
  * Two kinds of line. Whole phrases go out just as they are. While she works she also mixes and matches an
- * action with a subject, for whimsical nonsense, and now and then the subject is the mind goblin. When a drop is
- * turned away it is always the mind goblin. Add to any list freely;
+ * action with a subject, for whimsical nonsense. When a drop is turned away, an error, a failure or a trick, it is
+ * always the mind goblin, and he is never anywhere else. Add to any list freely;
  * keep a line short enough for the tag, and keep it magic.
  */
 export const LINES = {
@@ -74,17 +74,16 @@ export const SUBJECTS = [
   'the protons', 'the processor', 'a stray photon', 'the electrons', 'the bandwidth',
 ];
 
-/** The subject she very rarely meets. */
-export const RARE = 'the mind goblin';
+/** The mind goblin: only ever blamed for an error, a failure or a trick, so he is in no mix and no casual line. */
+export const GOBLIN = 'the mind goblin';
 
 const MIX_SHARE = 0.7; // of what she says while she works, how much is an action and a subject
-const RARE_SHARE = 0.06; // of those, how often the subject is the mind goblin
 
 export const EVENTS = Object.keys(LINES);
 
 /** Every line an event could say. */
 const phrases = ([verb, ...connectors], subject) => (connectors.length ? connectors : ['']).map((c) => `${verb} ${c ? `${c} ` : ''}${subject}`);
-export const allLines = (event) => (LINES[event] ? [...LINES[event], ...(MIXES[event] ?? []).flatMap((a) => [...SUBJECTS, RARE].flatMap((s) => phrases(a, s)))] : []);
+export const allLines = (event) => (LINES[event] ? [...LINES[event], ...(MIXES[event] ?? []).flatMap((a) => SUBJECTS.flatMap((s) => phrases(a, s)))] : []);
 
 /**
  * @param {() => number} random picks the line, so a seed repeats what is said
@@ -101,7 +100,7 @@ export function createVoice(random = Math.random) {
       let said = '';
       for (let tries = 0; tries < 10 && (!said || said === last[event]); tries++) {
         said = MIXES[event] && random() < MIX_SHARE
-          ? pick(phrases(pick(MIXES[event]), random() < RARE_SHARE ? RARE : pick(SUBJECTS)))
+          ? pick(phrases(pick(MIXES[event]), pick(SUBJECTS)))
           : pick(LINES[event]);
       }
       if (said === last[event]) said = pick(LINES[event].filter((l) => l !== last[event]));

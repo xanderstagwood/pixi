@@ -1,7 +1,7 @@
 // Pixi's voice: what it says while it works and when a drop is turned away. Magic, never tech, never repeating itself back to back,
 // whole phrases that go as they are, and mix-and-match moments of whimsical nonsense, with the mind goblin now and then.
 import assert from 'node:assert/strict';
-import { EVENTS, LINES, MIXES, RARE, SUBJECTS, allLines, createVoice } from '../src/voice.js';
+import { EVENTS, GOBLIN, LINES, MIXES, SUBJECTS, allLines, createVoice } from '../src/voice.js';
 import { mulberry32 } from './img.mjs';
 
 assert.deepEqual([...EVENTS].sort(), ['ANALYZING', 'EXPANDING', 'REST', 'SHRINKING', 'empty', 'not-image', 'too-big', 'too-many', 'unreadable'], 'every phase, her resting and every way a drop is turned away has a voice');
@@ -23,8 +23,8 @@ for (const event of EVENTS) {
 assert.deepEqual(Object.keys(MIXES).sort(), ['ANALYZING', 'EXPANDING', 'REST', 'SHRINKING'], 'only the phases and her resting mix and match');
 assert.ok(SUBJECTS.length >= 30, 'there are plenty of subjects');
 assert.equal(new Set(SUBJECTS).size, SUBJECTS.length, 'and none twice');
-assert.ok(!SUBJECTS.includes(RARE), 'the mind goblin is not an everyday subject');
-assert.equal(RARE, 'the mind goblin', 'but the mind goblin exists');
+assert.equal(GOBLIN, 'the mind goblin', 'the mind goblin exists');
+assert.ok(!SUBJECTS.includes(GOBLIN), 'but he is never an everyday subject');
 for (const [event, actions] of Object.entries(MIXES)) {
   assert.ok(actions.length >= 12, `${event} has plenty of actions`);
   assert.equal(new Set(actions.map((a) => a[0])).size, actions.length, `${event} has no repeated verb`);
@@ -32,7 +32,7 @@ for (const [event, actions] of Object.entries(MIXES)) {
     assert.ok(typeof verb === 'string' && verb.trim(), `${event} has a verb`);
     assert.ok(connectors.every((c) => typeof c === 'string' && c.trim()), `${verb} has real connectors`);
     for (const connector of connectors.length ? connectors : ['']) {
-      for (const subject of [...SUBJECTS, RARE]) check(`${verb} ${connector ? connector + ' ' : ''}${subject}`, `${event} mix`);
+      for (const subject of SUBJECTS) check(`${verb} ${connector ? connector + ' ' : ''}${subject}`, `${event} mix`);
     }
   }
 }
@@ -68,10 +68,9 @@ const TURNED_AWAY = EVENTS.filter((e) => !MIXES[e]);
 assert.deepEqual([...TURNED_AWAY].sort(), ['empty', 'not-image', 'too-big', 'too-many', 'unreadable'], 'every way a drop is turned away is blamed on the goblin');
 for (const event of TURNED_AWAY) {
   assert.ok(LINES[event].length >= 4, `${event} has plenty of goblin lines`);
-  LINES[event].forEach((l) => assert.ok(l.includes(RARE), `"${l}" blames the mind goblin`));
+  LINES[event].forEach((l) => assert.ok(l.includes(GOBLIN), `"${l}" blames the mind goblin`));
   assert.deepEqual(allLines(event), LINES[event], `a turned-away drop only ever gets its goblin lines`);
 }
-assert.ok(allLines('ANALYZING').includes('distracted by the mind goblin'), 'and she can be distracted by the mind goblin');
 
 const voice = createVoice(mulberry32(3));
 for (const event of EVENTS) {
@@ -91,14 +90,19 @@ assert.deepEqual(allLines('nonsense'), [], 'and has nothing to say');
   const said = Array.from({ length: 4000 }, () => talk.line('ANALYZING'));
   const share = (f) => said.filter(f).length / said.length;
   assert.ok(share((l) => !LINES.ANALYZING.includes(l)) > 0.3 && share((l) => !LINES.ANALYZING.includes(l)) < 0.9, 'a good share of what she says is mixed, and a good share is whole phrases');
-  assert.ok(share((l) => l.includes(RARE)) > 0.005 && share((l) => l.includes(RARE)) < 0.08, 'the mind goblin is a rare pull');
-  assert.ok(said.some((l) => l.includes(RARE)), 'but she does meet him');
+}
+
+// The mind goblin only ever comes with errors, tricks and failures: never casually, never while she works or rests.
+for (const event of EVENTS.filter((e) => MIXES[e])) {
+  assert.ok(allLines(event).every((l) => !l.includes(GOBLIN)), `${event} never mentions the mind goblin`);
+  const talk = createVoice(mulberry32(9));
+  for (let i = 0; i < 3000; i++) assert.ok(!talk.line(event).includes(GOBLIN), `${event} never mentions the mind goblin`);
 }
 
 {
   const talk = createVoice(mulberry32(5));
   for (const event of TURNED_AWAY) {
-    for (let i = 0; i < 300; i++) assert.ok(talk.line(event).includes(RARE), `${event} always blames the mind goblin`);
+    for (let i = 0; i < 300; i++) assert.ok(talk.line(event).includes(GOBLIN), `${event} always blames the mind goblin`);
   }
 }
 
