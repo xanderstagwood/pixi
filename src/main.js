@@ -188,39 +188,54 @@ async function analyzeOne(file, last) {
 
     work.width = work.height = 0; // the source pixels are spent: the bloxel grid holds all that is kept
 
-    // The show: the blocks grow, drones hunt the colors and the chips land and lock. `f` is how much of its time it takes.
+    // The show: the blocks grow, drones hunt the colors, the chips land and lock. It keeps its place (`seen`), so a show
+    // cut short when the user was away is picked up where they last saw it, and what they saw is not played again.
+    // `f` is how much of its time each part takes.
+    const seen = { wave: 0, landed: new Set(), locked: false, held: false };
+    const rgbOf = (hex) => Object.values(hexToRgb(hex));
+    const targets = clusters.map((c) => ({ rgb: rgbOf(c.hex) }));
+    const runs = candidates.map((c) => sequence(c, T.hits[1] + 2)); // the colors each drone hunts, in order, and how far along it is
+    const taken = clusters.map(() => 0);
+    let stack = null, scan = null;
     const play = async (f) => {
       setStatus('ANALYZING');
-      await until(bloxels.ripple(T.ripple * f, signal));
-      if (!stillMotion()) bloxels.twinkle.start(); // once the blocks are grown, a few catch the light
-
-      const stack = createStack(CHIPS);
-      $('stack-host').replaceChildren(stack.el);
-      stack.el.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 300 * f, easing: 'steps(5)' });
-
-      const rgbOf = (hex) => Object.values(hexToRgb(hex));
-      const targets = clusters.map((c) => ({ rgb: rgbOf(c.hex) }));
+      if (seen.wave !== Infinity) {
+        if (seen.wave > 0) bloxels.rewind(seen.wave);
+        seen.wave = await until(bloxels.ripple(T.ripple * f, signal, seen.wave));
+        if (seen.wave === Infinity && !stillMotion()) bloxels.twinkle.start(); // once the blocks are grown, a few catch the light
+      }
+      if (!stack) {
+        stack = createStack(CHIPS);
+        $('stack-host').replaceChildren(stack.el);
+        stack.el.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 300 * f, easing: 'steps(5)' });
+      }
       // What each chip will show is decided before anything moves, and the drone that hunts it goes to
       // the bloxel closest to that color: it comes to rest there, and only then does the chip shift.
-      // When it parks, the chip lands on the kept color.
-      const hits = T.hits.map((h) => Math.max(3, Math.round(h * f)));
-      const runs = candidates.map((c) => sequence(c, hits[1] + 2));
-      const taken = clusters.map(() => 0);
-      const landing = [];
-      const scan = runScanners($('scanners'), bloxels, targets, {
-        next: (i) => { const hex = runs[i][taken[i]++]; return { hex, rgb: rgbOf(hex) }; },
-        onStop: (i, hex) => { stack.swapTo(slotOf[i], hex); },
-        onFinish: (i) => { landing.push(stack.swapTo(slotOf[i], candidates[i][keep[i]])); },
-      }, { ...T, stagger: T.stagger * f, roam: T.roam.map((v) => v * f), hits, signal });
-      session.scan = scan;
-      await until(scan.finished);
-      await until(Promise.all(landing));
-      if (skipped()) await until(Promise.all(clusters.map((_, i) => stack.swapTo(slotOf[i], candidates[i][keep[i]])))); // cut short: the chips still show what was kept
+      // When it parks, the chip lands on the kept color. A drone whose chip already landed is not sent again.
+      const hunting = clusters.map((_, i) => i).filter((i) => !seen.landed.has(i));
+      if (hunting.length) {
+        const hits = T.hits.map((h) => Math.max(3, Math.round(h * f)));
+        const landing = [];
+        scan = runScanners($('scanners'), bloxels, hunting.map((i) => targets[i]), {
+          next: (k) => { const hex = runs[hunting[k]][taken[hunting[k]]++]; return { hex, rgb: rgbOf(hex) }; },
+          onStop: (k, hex) => { stack.swapTo(slotOf[hunting[k]], hex); },
+          onFinish: (k) => { const i = hunting[k]; seen.landed.add(i); landing.push(stack.swapTo(slotOf[i], candidates[i][keep[i]])); },
+        }, { ...T, stagger: T.stagger * f, roam: T.roam.map((v) => v * f), hits, signal });
+        session.scan = scan;
+        await until(scan.finished);
+        await until(Promise.all(landing));
+      }
+      if (seen.landed.size < clusters.length) { scan?.clear(); return; } // cut short before every chip landed
       bloxels.twinkle.stop(); // the lit ones fade out well before the window closes
-
-      await until(Promise.all(clusters.map((_, slot) => sleep(slot * T.lockGap * f).then(() => stack.lock(slot)))));
-      await until(sleep(T.hold * f));
-      scan.clear();
+      if (!seen.locked) {
+        await until(Promise.all(clusters.map((_, slot) => sleep(slot * T.lockGap * f).then(() => stack.lock(slot)))));
+        seen.locked = !skipped();
+      }
+      if (!seen.held) {
+        await until(sleep(T.hold * f));
+        seen.held = !skipped();
+      }
+      scan?.clear();
     };
     await play(1);
 

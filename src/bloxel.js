@@ -167,21 +167,35 @@ export function createBloxels(canvas, source, cardCells, seeds = []) {
     twinkle,
     /** Let go of the private copy of the image. */
     release() { twinkle.halt(); img.width = img.height = 0; },
-    /** Blocks grow out of the dark in a wave from the top-left. */
-    async ripple(ms, signal) {
+    /**
+     * Blocks grow out of the dark in a wave from the top-left, taking `ms` per unit the wave travels. `from` picks a wave
+     * up where an earlier one was cut short (see `rewind`). Resolves with how far the wave got while it could be seen:
+     * `Infinity` if it came to its end, else where it was when the tab was left, the rest being drawn at once.
+     */
+    async ripple(ms, signal, from = 0) {
       done = 0;
+      while (from > 0 && done < g.count && from - when(g.order[done]) >= GROW) done++;
+      let reached = from;
       await frames((t) => {
-        front = t / ms;
+        front = reached = from + t / ms;
         for (let j = done; j < g.count && when(g.order[j]) <= front; j++) paintCell(g.order[j]);
         while (done < g.count && front - when(g.order[done]) >= GROW) done++;
         if (done < g.count) return false;
         front = Infinity;
         return true;
       }, signal);
-      if (front === Infinity) return;
+      if (front === Infinity) return Infinity;
       // Cut short because the tab was left: finish the wave at once, so the grid is whole if the tab comes back.
       front = Infinity;
       done = g.count;
+      g.order.forEach(paintCell);
+      return reached;
+    },
+    /** Draws the grid as it was when a wave had got as far as `at`, to pick the wave up from there. */
+    rewind(at) {
+      front = at;
+      done = 0;
+      while (done < g.count && front - when(g.order[done]) >= GROW) done++;
       g.order.forEach(paintCell);
     },
   };
