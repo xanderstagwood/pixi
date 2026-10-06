@@ -1,18 +1,19 @@
 import { variations } from './color.js';
-import { arrange, decide } from './arrange.js';
+import { decide } from './arrange.js';
 import { choose } from './chooser.js';
 import { extractColors } from './extract.js';
+import { gradient } from './gradient.js';
 import { harmonize } from './harmony.js';
 
 const POOL = 12; // colors of a picture the seven are chosen from
 
 /**
  * Everything about a palette that is settled before anything moves. The seven are chosen from the
- * picture's twelve for contrast and company (chooser.js). Every palette gets a shade pattern (a clean ramp, dark to
- * light or light to dark) and a temperature pattern together (arrange.js). The free chips are nudged a little toward
- * the palette's own hue so they flow together (harmony.js). Then each color keeps whichever of its five candidates
- * makes the order fit its patterns best, never one that crowds another chip (decide). A picture that is answered
- * exactly keeps its colors exactly: nothing is nudged.
+ * picture's twelve for contrast and company (chooser.js). The free chips are nudged a little toward the palette's
+ * own hue so they flow together (harmony.js). The chips are ordered as one ramp, each color family in a block, and
+ * their lightness fitted to it (gradient.js). Then each color keeps whichever of its five candidates makes the order
+ * fit best, never one that crowds another chip (decide). A picture that is answered exactly keeps its colors
+ * exactly: nothing is nudged or fitted.
  * @param {{data: Uint8ClampedArray, width: number, height: number}} pixels
  * @param {() => number} random seeds the extraction and breaks ties, so a fixed one makes the palette repeatable
  * @param {number} chips how many colors a palette holds
@@ -24,13 +25,16 @@ export function buildPalette(pixels, random = Math.random, chips = 7) {
   const pool = extractColors(pixels, POOL, undefined, random).map((c) => ({ ...c, hex: c.vivid }));
   if (!pool.length) return null;
 
-  const { picks, roles, mode } = choose(pool, chips, random);
+  const { picks, roles, groups, mode } = choose(pool, chips, random);
   let clusters = picks;
-  const arrangement = arrange(clusters.map((c) => c.hex), random);
   if (mode !== 'exact') {
     const tuned = harmonize(clusters.map((c, i) => ({ hex: c.hex, role: roles[i] })));
     clusters = clusters.map((c, i) => ({ ...c, hex: tuned[i] }));
   }
+  // The order, and the chips' lightness fitted to it as one gradient (an exact palette is only ordered).
+  const plan = gradient(clusters.map((c, i) => ({ hex: c.hex, group: groups[i], role: roles[i] })), random, mode !== 'exact');
+  clusters = clusters.map((c, i) => ({ ...c, hex: plan.hexes[i] }));
+  const arrangement = { order: plan.order, temperature: plan.temperature, shade: plan.shade };
   const candidates = clusters.map((c) => (mode === 'exact' ? [c.hex] : variations(c.hex)));
   const keep = decide(candidates, arrangement, random);
   const slotOf = []; // cluster index -> slot (0 = bottom row); the arrangement lists the top row first

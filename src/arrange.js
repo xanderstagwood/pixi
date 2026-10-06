@@ -2,18 +2,11 @@ import { hexToRgb } from './color.js';
 import { TELLABLE, deltaE, rgbToOklab } from './oklab.js';
 import { classify } from './perceive.js';
 
-// Putting a palette in order the way an eye would: a clean ramp, never a peak or a dip in the middle. Every palette gets
-// one shade pattern and one temperature pattern, read top to bottom:
+// What a finished order costs, and which of each color's candidates fits it best. The order itself is made in
+// gradient.js: a clean ramp, dark to light or light to dark, with warm to cool settling what the ramp leaves open.
 //
-//   shade         dark to light, or light to dark                      (leads)
-//   temperature   warm to cool, or cool to warm                        (settles which way round, and the order of equally light colors)
-//
-// Each color is first judged as a person would judge it (perceive.js): how warm it looks and how light it looks. Then
-// every order of the colors is tried against every pair of patterns, and the one where each step goes the way its pattern
-// says wins. A step that a viewer could not tell from level (under a just-noticeable difference) is not held against it.
-
-export const TEMPERATURES = ['warm-to-cool', 'cool-to-warm'];
-export const SHADES = ['dark-to-light', 'light-to-dark'];
+// Each color is judged as a person would judge it (perceive.js): how warm it looks and how light it looks. A step that
+// a viewer could not tell from level (under a just-noticeable difference) is not held against the order.
 
 const TEMP_TOLERANCE = 0.2; // warmth steps smaller than this read as level: a near-black and an indigo are both just cool
 const SHADE_TOLERANCE = 0.04; // so do lightness steps smaller than this
@@ -24,8 +17,6 @@ const ZIGZAG = 0.25; // among orders that fit equally, prefer the one closest to
 // on temperature go in whichever order makes the gentler run of lightness. Lightness lurches are what
 // an eye notices most, so it counts for more than warmth.
 const SMOOTH = { temperature: 0.1, shade: 1.5 };
-const CLOSE = 0.2; // colors whose warmth differs by less than this are level, so the order between them may follow the gradient
-const NEAR_TIE = 0.05; // combinations this close to the best are all "about as good": one is picked at random
 
 /** Steps that go against `dir` (+1 rising, -1 falling), beyond the tolerance. */
 function against(x, dir, tolerance, from = 0, to = x.length - 1) {
@@ -59,30 +50,6 @@ export function shadeCost(s, pattern) {
   return STEEP * against(s, pattern === 'dark-to-light' ? 1 : -1, SHADE_TOLERANCE) + ZIGZAG * zigzag(s) + SMOOTH.shade * lurch(s);
 }
 
-/** Every order of 0..n-1. */
-function permutations(n) {
-  const out = [];
-  const go = (rest, chosen) => {
-    if (!rest.length) { out.push(chosen); return; }
-    rest.forEach((v, i) => go([...rest.slice(0, i), ...rest.slice(i + 1)], [...chosen, v]));
-  };
-  go(Array.from({ length: n }, (_, i) => i), []);
-  return out;
-}
-
-const orders = new Map(); // n -> every order of n things, made once
-const ordersOf = (n) => { if (!orders.has(n)) orders.set(n, permutations(n)); return orders.get(n); };
-/** The best order of colors with these warmths `w` and lightnesses `s` for one pair of patterns. */
-function bestOrder(w, s, temperature, shade) {
-  let best = Infinity, order = null;
-  for (const perm of ordersOf(w.length)) {
-    const cost = WEIGHT.temperature * temperatureCost(perm.map((i) => w[i]), temperature)
-      + WEIGHT.shade * shadeCost(perm.map((i) => s[i]), shade);
-    if (cost < best) { best = cost; order = perm; }
-  }
-  return { order, cost: best };
-}
-
 /** Warmth and lightness for each color, as an eye judges them. */
 const judge = (hexes) => hexes.map(classify);
 
@@ -91,52 +58,6 @@ export function patternCost(hexes, temperature, shade) {
   const seen = judge(hexes);
   return WEIGHT.temperature * temperatureCost(seen.map((c) => c.warmth), temperature)
     + WEIGHT.shade * shadeCost(seen.map((c) => c.shade), shade);
-}
-
-/**
- * A last look at neighbours. Two colors that are level on temperature can go either way round without
- * breaking the temperature pattern, so if swapping them makes the run of lightness smoother, they swap.
- * (A near-black and an indigo, both simply cool, should not send the shade dipping and springing back.)
- */
-function polish(order, w, s, shade) {
-  const o = [...order];
-  for (let pass = 0, moved = true; moved && pass < 20; pass++) {
-    moved = false;
-    for (let k = 0; k < o.length - 1; k++) {
-      if (Math.abs(w[o[k]] - w[o[k + 1]]) >= CLOSE) continue;
-      const swapped = [...o];
-      [swapped[k], swapped[k + 1]] = [swapped[k + 1], swapped[k]];
-      // a swap is kept only if the ramp itself fits better: smoothing never deepens a dip
-      if (shadeCost(swapped.map((i) => s[i]), shade) < shadeCost(o.map((i) => s[i]), shade) - 0.005) { o.splice(0, o.length, ...swapped); moved = true; }
-    }
-  }
-  return o;
-}
-
-/**
- * Chooses the temperature pattern, the shade pattern and the order that fits them best.
- * @param {string[]} hexes
- * @param {() => number} random breaks near-ties, so the same palette can be presented in more than one good way
- * @returns {{order: number[], temperature: string, shade: string, cost: number}} `order` lists indices of `hexes`, top row first
- */
-export function arrange(hexes, random = Math.random) {
-  const seen = judge(hexes);
-  const w = seen.map((c) => c.warmth), s = seen.map((c) => c.shade);
-  const found = [];
-  for (const temperature of TEMPERATURES) {
-    for (const shade of SHADES) found.push({ ...bestOrder(w, s, temperature, shade), temperature, shade });
-  }
-  const lowest = Math.min(...found.map((f) => f.cost));
-  const close = found.filter((f) => f.cost <= lowest + NEAR_TIE);
-  const pick = close[Math.floor(random() * close.length)];
-  // Polishing can change which patterns the order now fits, so name the ones it fits best.
-  const order = polish(pick.order, w, s, pick.shade);
-  const run = order.map((i) => s[i]);
-  const warmth = order.map((i) => w[i]);
-  const shade = SHADES.reduce((a, b) => (shadeCost(run, b) < shadeCost(run, a) ? b : a));
-  const temperature = TEMPERATURES.reduce((a, b) => (temperatureCost(warmth, b) < temperatureCost(warmth, a) ? b : a));
-  const cost = WEIGHT.temperature * temperatureCost(warmth, temperature) + WEIGHT.shade * shadeCost(run, shade);
-  return { order, temperature, shade, cost };
 }
 
 const lab = (hex) => rgbToOklab(hexToRgb(hex));

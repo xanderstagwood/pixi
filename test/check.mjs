@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 import { crc32 as nodeCrc } from 'node:zlib';
 import { brighter, glint, sequence, mix, variations, hexToRgb } from '../src/color.js';
 import { extractColors } from '../src/extract.js';
-import { arrange, decide, shadeCost, temperatureCost } from '../src/arrange.js';
+import { decide, shadeCost, temperatureCost } from '../src/arrange.js';
+import { gradient } from '../src/gradient.js';
 import { classify } from '../src/perceive.js';
 import { oklabToRgb, rgbToOklab, toOklch } from '../src/oklab.js';
 import * as f from '../src/export/formats.js';
@@ -73,30 +74,15 @@ assert.ok(classify('#948A82').warmth > classify('#82888F').warmth, 'a warm gray 
 const cheaper = (fit, wrong) => wrong - fit > 0.1; // the smoothness part is the same either way, so compare the gap
 assert.ok(cheaper(temperatureCost([0.9, 0.5, 0.1, -0.3, -0.8], 'warm-to-cool'), temperatureCost([0.9, 0.5, 0.1, -0.3, -0.8], 'cool-to-warm')));
 assert.ok(cheaper(shadeCost([0.1, 0.3, 0.5, 0.7, 0.9], 'dark-to-light'), shadeCost([0.1, 0.3, 0.5, 0.7, 0.9], 'light-to-dark')));
-// Arranging: every palette gets both patterns, every color placed once, and the order fits what it says.
+// A gradient plan: every color placed once.
 const palette = ['#E8552B', '#F2B540', '#2E6FA5', '#1F3A5F', '#8FB8C9', '#B85C38', '#3E2A2A'];
-for (const roll of [0, 0.5, 0.99]) {
-  const plan = arrange(palette, () => roll);
-  assert.deepEqual([...plan.order].sort(), [0, 1, 2, 3, 4, 5, 6]);
-  assert.ok(['warm-to-cool', 'cool-to-warm'].includes(plan.temperature));
-  assert.ok(['dark-to-light', 'light-to-dark'].includes(plan.shade));
-  const seen = plan.order.map((i) => classify(palette[i]));
-  const w = seen.map((c) => c.warmth);
-  const other = plan.temperature === 'warm-to-cool' ? 'cool-to-warm' : 'warm-to-cool';
-  assert.ok(temperatureCost(w, plan.temperature) <= temperatureCost(w, other), 'the temperature pattern named is the one the order fits best');
-}
-// A real palette that lurched: near-black then a lighter indigo at the bottom. Level on temperature, so the
-// gentler gradient wins: the indigo goes above the black.
-const lurching = ['#FC6D34', '#FA3535', '#A61520', '#7D1525', '#5A1832', '#111521', '#333867'];
-for (const roll of [0, 0.3, 0.6, 0.99]) {
-  const plan = arrange(lurching, () => roll);
-  if (plan.temperature !== 'warm-to-cool') continue;
-  const rows = plan.order.map((i) => lurching[i]);
-  assert.ok(rows.indexOf('#333867') < rows.indexOf('#111521'), `indigo should sit above near-black: ${rows.join(' ')}`);
-}
+const plan = gradient(palette.map((hex, i) => ({ hex, group: i < 2 || i > 4 ? 0 : 1, role: '' })), () => 0.2);
+assert.deepEqual([...plan.order].sort(), [0, 1, 2, 3, 4, 5, 6]);
+assert.ok(['warm-to-cool', 'cool-to-warm'].includes(plan.temperature));
+assert.ok(['dark-to-light', 'light-to-dark'].includes(plan.shade));
 // The choice of candidate keeps the count and stays in range.
 const cands = palette.map((h) => [h, h, h]);
-const kept = decide(cands, arrange(palette, () => 0));
+const kept = decide(cands, plan);
 assert.equal(kept.length, 7);
 assert.ok(kept.every((c) => c >= 0 && c < 3));
 

@@ -1,17 +1,18 @@
-// arrange: every palette is a clean ramp. Lightness leads (dark to light or light to dark, never a peak in the middle),
-// and temperature only settles which way round, and the order among colors of the same lightness.
+// The order of a finished palette, through the whole pipeline: a clean ramp, with each color family in one block.
 import assert from 'node:assert/strict';
 import * as arranging from '../src/arrange.js';
+import { hexToRgb } from '../src/color.js';
+import { rgbToOklab, toOklch } from '../src/oklab.js';
 import { classify } from '../src/perceive.js';
-import { mulberry32 } from './img.mjs';
-import { rgbToHex } from '../src/color.js';
-import { oklchToRgb } from '../src/oklab.js';
+import { buildPalette } from '../src/palette.js';
+import { mulberry32, patches } from './img.mjs';
 
-const { arrange } = arranging;
-assert.deepEqual(arranging.SHADES, ['dark-to-light', 'light-to-dark'], 'there are two ways to run a ramp and no others');
+assert.equal(arranging.arrange, undefined, 'the order is made by the gradient now, not by trying every order');
+assert.equal(arranging.SHADES, undefined, 'and there are no patterns to choose between');
 assert.equal(arranging.turnsOnMiddle, undefined, 'a palette never turns on its middle chip');
 assert.equal(arranging.fit, undefined, 'so nothing is fitted to make it do so');
 
+const lightness = (h) => toOklch(rgbToOklab(hexToRgb(h))).L;
 const reversals = (x, tolerance) => {
   let count = 0, dir = 0;
   for (let i = 1; i < x.length; i++) {
@@ -22,36 +23,25 @@ const reversals = (x, tolerance) => {
   }
   return count;
 };
-const runOf = (hexes, plan, pick) => plan.order.map((i) => pick(classify(hexes[i])));
+const topToBottom = (image, seed) => [...buildPalette(image, mulberry32(seed)).colors].reverse();
 
-// Random palettes: always a ramp, whatever the colors.
-{
-  const rng = mulberry32(21);
-  const randomHex = () => '#' + [0, 1, 2].map(() => Math.floor(rng() * 256).toString(16).padStart(2, '0')).join('');
-  for (let trial = 0; trial < 200; trial++) {
-    const hexes = Array.from({ length: 7 }, randomHex);
-    const plan = arrange(hexes, rng);
-    assert.ok(['dark-to-light', 'light-to-dark'].includes(plan.shade), `trial ${trial}: a ramp`);
-    assert.equal(reversals(runOf(hexes, plan, (c) => c.shade), 0.05), 0, `trial ${trial}: lightness never turns round: ${hexes.join(' ')}`);
-  }
-}
+const PAIR = patches([
+  { hex: '#C0501E', share: 0.14 }, { hex: '#E0702E', share: 0.14 }, { hex: '#A03A14', share: 0.12 }, { hex: '#F09A5A', share: 0.1 },
+  { hex: '#1E5C8A', share: 0.14 }, { hex: '#2E7CB0', share: 0.14 }, { hex: '#0E3C5A', share: 0.12 }, { hex: '#7EB4D8', share: 0.1 },
+]);
+const TONAL = patches([
+  { hex: '#2A1F14', share: 0.14 }, { hex: '#4A3622', share: 0.14 }, { hex: '#6A4C30', share: 0.14 }, { hex: '#8A6640', share: 0.14 },
+  { hex: '#AA8458', share: 0.14 }, { hex: '#CAA474', share: 0.12 }, { hex: '#EAC490', share: 0.1 }, { hex: '#6E6A66', share: 0.08 },
+]);
 
-// Lightness wins over temperature: warm and cool colors, dark and light, still come out as a ramp.
-{
-  const hexes = ['#3A0A0A', '#8FD0FF', '#FFD08F', '#0A2A4A', '#808080', '#B04030', '#305070'];
-  for (const roll of [0, 0.3, 0.6, 0.99]) {
-    const plan = arrange(hexes, () => roll);
-    assert.equal(reversals(runOf(hexes, plan, (c) => c.shade), 0.05), 0, 'lightness runs one way even though warm and cool alternate');
-  }
-}
+for (let seed = 1; seed <= 30; seed++) {
+  const tonal = topToBottom(TONAL, seed);
+  assert.equal(reversals(tonal.map(lightness), 0.02), 0, `one hue is a clean ramp (seed ${seed}): ${tonal.join(' ')}`);
 
-// Temperature settles the order among colors that are equally light.
-{
-  const level = [0, 50, 100, 150, 200, 250].map((h) => rgbToHex(oklchToRgb({ L: 0.6, C: 0.12, h })));
-  for (const roll of [0, 0.4, 0.99]) {
-    const plan = arrange(level, () => roll);
-    assert.equal(reversals(runOf(level, plan, (c) => c.warmth), 0.2), 0, 'level in lightness, the run goes steadily warm to cool or cool to warm');
-  }
+  const pair = topToBottom(PAIR, seed);
+  // Two hues whose shades overlap almost completely cannot be a perfect ramp in blocks within sensible shading: at most one dip (two changes of direction), where one block meets the other.
+  assert.ok(reversals(pair.map(lightness), 0.03) <= 2, `two hues run one way in lightness, give or take one dip at the join (seed ${seed}): ${pair.join(' ')}`);
+  assert.ok(reversals(pair.map((h) => classify(h).warmth), 0.2) <= 1, `and each hue is one block, so warm and cool swap over once at most (seed ${seed}): ${pair.join(' ')}`);
 }
 
 console.log('ok 12-order');
