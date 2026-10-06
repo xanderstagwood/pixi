@@ -33,6 +33,9 @@ const T = {
   stagger: 140, roam: [7000, 10500], hits: [12, 16], // hits sets the length of the scan; roam is only the safety cap
   chargeToBurst: 1200,
 };
+// About how long an analysis takes with its show. A tab that is not showing takes as long (on timers, not frames), so
+// nobody can tell the show is only for them.
+const SHOW_MS = 7000;
 const MAX_SIDE = 2048; // the working copy of a huge image never exceeds this
 // Limits on what is accepted at all, so five huge files cannot strain a phone or a small laptop.
 const MAX_BYTES = 25 * 1024 * 1024; // per file, so at most 225MB in a batch
@@ -161,10 +164,13 @@ async function analyze(file, last) {
   // wherever the run has got to, and the catch below fades the screen away without making a card.
   session = { scan: null, abort: new AbortController(), locked: false };
   const { signal } = session.abort;
+  const began = performance.now();
   const until = (p) => {
     signal.throwIfAborted();
     return Promise.race([p, new Promise((_, fail) => signal.addEventListener('abort', () => fail(signal.reason), { once: true }))]);
   };
+  // The rest of the time the show would have taken, on a plain timer: it runs in a hidden tab, and cancel can still end it.
+  const pad = () => until(new Promise((done) => setTimeout(done, Math.max(0, SHOW_MS - (performance.now() - began)))));
   let work;
   try { await until(fontReady); work = await until(load(file)); } catch (e) { session = null; if (!signal.aborted) say(e.reason ?? 'unreadable'); return; }
   const pixels = sample(work);
@@ -172,12 +178,13 @@ async function analyze(file, last) {
   if (!plan) { session = null; say('empty'); return; }
   const { clusters, candidates, keep, slotOf } = plan;
 
-  if (document.hidden) { // nobody is watching, and a hidden tab stops animation: the card is made at once, without the show
+  if (document.hidden) { // nobody is watching, and a hidden tab stops animation: the work is done without the show, in the show's time
     const seeds = clusters.map((c, i) => ({ hex: candidates[i][keep[i]], x: c.x, y: c.y }));
     const bloxels = createBloxels(document.createElement('canvas'), work, cardCells, seeds);
     const grid = bloxels.keep();
     bloxels.release();
     work.width = work.height = 0;
+    try { await pad(); } catch { session = null; return; } // cancelled
     const card = carousel.insert({ name: defaultName(file), colors: plan.colors, coordinates: plan.coordinates, grid, copied: -1, createdAt: Date.now(), credit: file.credit });
     wire(card);
     paintCard(card);
@@ -225,6 +232,7 @@ async function analyze(file, last) {
     await until(Promise.all(clusters.map((_, slot) => sleep(slot * T.lockGap).then(() => stack.lock(slot)))));
     await until(sleep(T.hold));
     scan.clear();
+    if (document.hidden) await pad(); // the show was cut short: the time it takes is not
 
     const palette = { name: defaultName(file), colors: plan.colors, coordinates: plan.coordinates, grid: bloxels.keep(), copied: -1, createdAt: Date.now(), credit: file.credit };
 
