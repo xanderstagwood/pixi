@@ -4,6 +4,7 @@
 // use for the theme (k): a chip called "Lagoon Mist" can then pick the sea. Only words that mean what the seeds mean
 // count (not ones that merely turn up near them: `pond` turns up near everything), and a word that means something to
 // more than TWO themes belongs to none of them, unless it is one of a theme's own seeds.
+// The secrets are hand-written names, each with the color that earns it (palname.js gives one now and then).
 // The looks (what each color of a grid looks like, in the words of color-description, https://github.com/words/color-description)
 // come from that package: npm i --no-save color-description first.
 // Run by hand when the seeds change: node scripts/words/build.mjs (needs the network; the app never does).
@@ -81,7 +82,7 @@ function looks() {
 }
 
 const words = (list) => [...new Set(list.filter((w) => DRAW.test(w)))].join(',');
-const out = { themes: {}, moods: {}, colors: {}, looks: looks() };
+const out = { themes: {}, moods: {}, colors: {}, looks: looks(), secrets: seeds.secrets };
 const meant = {};
 await each(Object.entries(seeds.themes), async ([name, t]) => { meant[name] = await related(t.seeds.filter((w) => !w.includes(' '))); });
 const spread = new Map();

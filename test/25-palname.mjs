@@ -66,4 +66,16 @@ assert.notEqual(lookCell('#B04040'), lookCell('#8A7A7A'), 'a vivid red and a mut
   assert.ok(!names.some((n) => /luminous/i.test(n)), 'and never by what a pale color looks like');
 }
 
+// Now and then a palette with one particular color in it is given a hand-written name for it.
+{
+  const secret = { ...words, secrets: [['Toadstool Pop', '#D6402B'], ['Midnight Snack', '#1B1A2E']] };
+  const red = ['#223344', '#D8442D'], dull = ['#223344', '#556677'];
+  assert.equal(createPalNamer(secret)(red, ['x', 'y'], () => 0), 'Toadstool Pop', 'a palette with the color in it, on a lucky roll, takes the name');
+  assert.notEqual(createPalNamer(secret)(red, ['x', 'y'], () => 0.99), 'Toadstool Pop', 'an unlucky roll gives the usual name, so the secret stays a surprise');
+  assert.ok(!/Toadstool Pop/.test(createPalNamer(secret)(dull, ['x', 'y'], () => 0)), 'a palette without the color never takes it');
+  assert.equal(createPalNamer(secret)(['#1C1B2D', '#D7432C'], ['x', 'y'], () => 0), 'Toadstool Pop', 'with two to choose from, the first named takes it');
+  const lucky = Array.from({ length: 400 }, (_, seed) => createPalNamer(secret)(red, ['x', 'y'], mulberry32(seed + 1))).filter((n) => n === 'Toadstool Pop').length;
+  assert.ok(lucky > 3 && lucky < 60, `it is rare (${lucky} of 400), not never and not often`);
+}
+
 console.log('ok 25-palname');

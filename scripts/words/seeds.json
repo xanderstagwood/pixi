@@ -2694,5 +2694,159 @@
    "merry",
    "bubbly"
   ]
- }
+ },
+ "secrets": [
+  [
+   "Pixie Dust",
+   "#F2D48A"
+  ],
+  [
+   "Toadstool Pop",
+   "#D6402B"
+  ],
+  [
+   "Dewdrop Diary",
+   "#BFE3E0"
+  ],
+  [
+   "Fairy Bread",
+   "#F4A6C0"
+  ],
+  [
+   "Mossy Throne",
+   "#4F6B34"
+  ],
+  [
+   "Thimble of Dawn",
+   "#F7C59F"
+  ],
+  [
+   "Wishing Well",
+   "#2C5F7C"
+  ],
+  [
+   "Sleepy Dragon",
+   "#3E7C5A"
+  ],
+  [
+   "Firefly Jar",
+   "#E8E24A"
+  ],
+  [
+   "Honey Heist",
+   "#E0A526"
+  ],
+  [
+   "Mermaid Mail",
+   "#2AA6A0"
+  ],
+  [
+   "Plum Pudding Spell",
+   "#5B2A4E"
+  ],
+  [
+   "Gingerbread Bandit",
+   "#A0612A"
+  ],
+  [
+   "Frostbite Waltz",
+   "#CFE6F2"
+  ],
+  [
+   "Poppy Prank",
+   "#E23B2E"
+  ],
+  [
+   "Lavender Lullaby",
+   "#B7A4D9"
+  ],
+  [
+   "Cattail Whisper",
+   "#6B4F36"
+  ],
+  [
+   "Peach Gossip",
+   "#F7B58B"
+  ],
+  [
+   "Rusty Compass",
+   "#A4512A"
+  ],
+  [
+   "Foxglove Fib",
+   "#B14FA0"
+  ],
+  [
+   "Pond Sprite",
+   "#3F8F7B"
+  ],
+  [
+   "Cinder Wink",
+   "#E86A24"
+  ],
+  [
+   "Blueberry Riddle",
+   "#3A4B8C"
+  ],
+  [
+   "Sunbeam Sneeze",
+   "#FBE36A"
+  ],
+  [
+   "Hedgehog Hush",
+   "#7A6652"
+  ],
+  [
+   "Thistle Tea",
+   "#9A7BA8"
+  ],
+  [
+   "Acorn Alibi",
+   "#8A5A2E"
+  ],
+  [
+   "Marmalade Moon",
+   "#F29B2D"
+  ],
+  [
+   "Velvet Heist",
+   "#6D1F3A"
+  ],
+  [
+   "Wisp Whistle",
+   "#8FB3D1"
+  ],
+  [
+   "Lime Rascal",
+   "#A6D13A"
+  ],
+  [
+   "Mushroom Gossip",
+   "#C8A98C"
+  ],
+  [
+   "Beetle Ballgown",
+   "#1F6F4A"
+  ],
+  [
+   "Quince Quarrel",
+   "#D9C23A"
+  ],
+  [
+   "Orchid Mischief",
+   "#C75CB8"
+  ],
+  [
+   "Teacup Typhoon",
+   "#2F8FBF"
+  ],
+  [
+   "Cranberry Curse",
+   "#9E1B3A"
+  ],
+  [
+   "Spruce Secret",
+   "#2E5E4A"
+  ]
+ ]
 }
