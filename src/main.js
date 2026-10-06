@@ -1,4 +1,4 @@
-import { rand, skipped, sleep, unlessAway, watchFrames } from './anim.js';
+import { rand, resume, returned, skipped, sleep, unlessAway, watchFrames } from './anim.js';
 import { hexToRgb, sequence } from './color.js';
 import { categoryName, numbered } from './credit.js';
 import { buildPalette } from './palette.js';
@@ -35,7 +35,7 @@ const T = {
 // About how long an analysis takes with its show. A tab that is away is waited for that long, and the show resumes if
 // the user comes back in time, so nobody can tell the show is only for them.
 const SHOW_MS = 7000;
-const MIN_WAIT = 3000; // someone who comes back with less than this left of the show gets the card now, with the chips filled in
+const REPLAY = 0.35; // how much of its time the show takes when it is played again for someone who was away: quick, but seen
 const MAX_SIDE = 2048; // the working copy of a huge image never exceeds this
 // Limits on what is accepted at all, so five huge files cannot strain a phone or a small laptop.
 const MAX_BYTES = 25 * 1024 * 1024; // per file, so at most 225MB in a batch
@@ -159,7 +159,7 @@ const defaultName = (file) => (file.category
 
 /** @param {boolean} last no more images are waiting, so the name field may take focus */
 async function analyze(file, last) {
-  const unwatch = watchFrames(performance.now() + SHOW_MS, MIN_WAIT); // a tab that is away is waited for, up to the show's time
+  const unwatch = watchFrames(performance.now() + SHOW_MS); // a tab that is away is waited for, up to the show's time
   try { await analyzeOne(file, last); } finally { unwatch(); }
 }
 
@@ -188,44 +188,54 @@ async function analyzeOne(file, last) {
 
     work.width = work.height = 0; // the source pixels are spent: the bloxel grid holds all that is kept
 
-    setStatus('ANALYZING');
-    await until(bloxels.ripple(T.ripple, signal));
-    if (!stillMotion()) bloxels.twinkle.start(); // once the blocks are grown, a few catch the light
+    // The show: the blocks grow, drones hunt the colors and the chips land and lock. `f` is how much of its time it takes.
+    const play = async (f) => {
+      setStatus('ANALYZING');
+      await until(bloxels.ripple(T.ripple * f, signal));
+      if (!stillMotion()) bloxels.twinkle.start(); // once the blocks are grown, a few catch the light
 
-    const stack = createStack(CHIPS);
-    $('stack-host').append(stack.el);
-    stack.el.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 300, easing: 'steps(5)' });
+      const stack = createStack(CHIPS);
+      $('stack-host').replaceChildren(stack.el);
+      stack.el.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 300 * f, easing: 'steps(5)' });
 
-    const rgbOf = (hex) => Object.values(hexToRgb(hex));
-    const targets = clusters.map((c) => ({ rgb: rgbOf(c.hex) }));
-    // What each chip will show is decided before anything moves, and the drone that hunts it goes to
-    // the bloxel closest to that color: it comes to rest there, and only then does the chip shift.
-    // When it parks, the chip lands on the kept color.
-    const runs = candidates.map((c) => sequence(c, T.hits[1] + 2));
-    const taken = clusters.map(() => 0);
-    const landing = [];
-    const scan = runScanners($('scanners'), bloxels, targets, {
-      next: (i) => { const hex = runs[i][taken[i]++]; return { hex, rgb: rgbOf(hex) }; },
-      onStop: (i, hex) => { stack.swapTo(slotOf[i], hex); },
-      onFinish: (i) => { landing.push(stack.swapTo(slotOf[i], candidates[i][keep[i]])); },
-    }, { ...T, signal });
-    session.scan = scan;
-    await until(scan.finished);
-    await until(Promise.all(landing));
-    if (skipped()) await until(Promise.all(clusters.map((_, i) => stack.swapTo(slotOf[i], candidates[i][keep[i]])))); // the show was given up: the chips still show what was kept
-    bloxels.twinkle.stop(); // the lit ones fade out well before the window closes
+      const rgbOf = (hex) => Object.values(hexToRgb(hex));
+      const targets = clusters.map((c) => ({ rgb: rgbOf(c.hex) }));
+      // What each chip will show is decided before anything moves, and the drone that hunts it goes to
+      // the bloxel closest to that color: it comes to rest there, and only then does the chip shift.
+      // When it parks, the chip lands on the kept color.
+      const hits = T.hits.map((h) => Math.max(3, Math.round(h * f)));
+      const runs = candidates.map((c) => sequence(c, hits[1] + 2));
+      const taken = clusters.map(() => 0);
+      const landing = [];
+      const scan = runScanners($('scanners'), bloxels, targets, {
+        next: (i) => { const hex = runs[i][taken[i]++]; return { hex, rgb: rgbOf(hex) }; },
+        onStop: (i, hex) => { stack.swapTo(slotOf[i], hex); },
+        onFinish: (i) => { landing.push(stack.swapTo(slotOf[i], candidates[i][keep[i]])); },
+      }, { ...T, stagger: T.stagger * f, roam: T.roam.map((v) => v * f), hits, signal });
+      session.scan = scan;
+      await until(scan.finished);
+      await until(Promise.all(landing));
+      if (skipped()) await until(Promise.all(clusters.map((_, i) => stack.swapTo(slotOf[i], candidates[i][keep[i]])))); // cut short: the chips still show what was kept
+      bloxels.twinkle.stop(); // the lit ones fade out well before the window closes
 
-    await until(Promise.all(clusters.map((_, slot) => sleep(slot * T.lockGap).then(() => stack.lock(slot)))));
-    await until(sleep(T.hold));
-    scan.clear();
+      await until(Promise.all(clusters.map((_, slot) => sleep(slot * T.lockGap * f).then(() => stack.lock(slot)))));
+      await until(sleep(T.hold * f));
+      scan.clear();
+    };
+    await play(1);
 
     const palette = { name: defaultName(file), colors: plan.colors, coordinates: plan.coordinates, grid: bloxels.keep(), copied: -1, createdAt: Date.now(), credit: file.credit };
-
     session.locked = true; // the card is made from here on: too late to cancel
-    setStatus('SHRINKING');
     const card = carousel.insert(palette);
     wire(card);
     paintCard(card);
+    if (skipped()) persist(); // the user was away and may never see it: the card is kept now, and the show is for when they return
+    while (skipped()) { // the show was cut short: the card waits for them, and the show plays again, quickly
+      await until(returned());
+      resume();
+      await play(REPLAY);
+    }
+    setStatus('SHRINKING');
     await stage.close(cardRect);
     // The window has closed onto the card exactly, and the card is the same blocks and chips in
     // the same device pixels, so it takes over in the very frame the stage goes: no fade.
