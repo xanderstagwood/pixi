@@ -125,19 +125,67 @@ assert.ok(!choose(GRAYS, 7, mulberry32(1)).roles.includes('hero'), 'a gray pictu
   assert.ok(roles.includes('dark') && roles.includes('light'), 'both are marked as anchors');
 }
 
-// Plentiful picks a family, limited spreads out, and the line between them is pinned.
-const separated = (n) => [
-  ...Array.from({ length: n }, (_, i) => entry(hex(0.6, 0.15, (360 / n) * i), 1 / 12)),
-  ...Array.from({ length: 12 - n }, (_, i) => entry(hex(0.6, 0.15, (360 / n) * i + 3), 1 / 12)),
-];
-assert.equal(richness(separated(PLENTIFUL)), PLENTIFUL, 'the fixture holds exactly the threshold of distinct colors');
-assert.equal(choose(separated(PLENTIFUL), 7, mulberry32(1)).mode, 'cohesive', 'at the threshold it picks a family');
-assert.equal(choose(separated(PLENTIFUL - 1), 7, mulberry32(1)).mode, 'varied', 'one below it spreads out');
+// Plentiful picks a family, limited spreads out, and the line between them is pinned. What is counted is hue
+// families, not shades: twelve reds are one color to look at, and a rainbow is twelve.
+const families = (n) => Array.from({ length: 12 }, (_, i) => entry(hex(0.35 + 0.12 * Math.floor(i / n), 0.12, (360 / n) * (i % n)), 1 / 12));
+assert.equal(richness(families(PLENTIFUL)), PLENTIFUL, 'the fixture holds exactly the threshold of hue families');
+assert.equal(choose(families(PLENTIFUL), 7, mulberry32(1)).mode, 'cohesive', 'at the threshold it picks a family');
+assert.equal(choose(families(PLENTIFUL - 1), 7, mulberry32(1)).mode, 'varied', 'one below it spreads out');
+{
+  const shades = [...Array.from({ length: 11 }, (_, i) => entry(hex(0.25 + i * 0.05, 0.16, 30 + (i % 3) * 4), 0.05)), entry('#100E07', 0.4)];
+  assert.ok(richness(shades) <= 2, 'eleven shades of one red and a black are two colors, not twelve');
+  assert.equal(choose(shades, 7, mulberry32(1)).mode, 'varied', 'so they are spread out, not gathered');
+}
+{
+  const crowd = [0, 90, 180, 270].flatMap((h) => [0.45, 0.48, 0.51].map((L) => entry(hex(L, 0.12, h), 1 / 12)));
+  assert.equal(choose(crowd, 7, mulberry32(1)).mode, 'cohesive', 'four families gather');
+  for (const rng of seeds(20)) {
+    assert.ok(minGap(hexes(choose(crowd, 7, rng).picks)) >= 0.055, 'even a family keeps its chips apart, near-twins are not both chips');
+  }
+}
 {
   const blues = Array.from({ length: 12 }, (_, i) => entry(hex(0.3 + i * 0.045, 0.08, 255 + (i % 3) * 3), 1 / 12));
   const { picks, mode } = choose(blues, 7, mulberry32(1));
   assert.equal(mode, 'varied', 'a picture of blues is limited');
   assert.ok(minGap(hexes(picks)) >= 0.03, 'its chips are all tellable apart');
+}
+
+// The road at night: black, a little olive, and eight shades of red and orange. Spread, not a crowd of reds.
+const ROAD = [
+  ['#010100', 0.83], ['#100E07', 0.114], ['#1E2113', 0.034], ['#FC0201', 0.006], ['#580706', 0.0037], ['#940E08', 0.0033],
+  ['#D00806', 0.003], ['#FB2804', 0.0028], ['#FC4F05', 0.0016], ['#5F6C60', 0.001], ['#D14B0E', 0.0009], ['#F8AB0E', 0.0003],
+].map(([h, s]) => entry(h, s));
+for (const rng of seeds(20)) {
+  const { picks } = choose(ROAD, 7, rng);
+  assert.ok(minGap(hexes(picks)) >= 0.08, 'no two chips of the road are near-twins');
+  assert.ok(picks.filter((p) => lch(p.hex).C > 0.1 && hueGap(lch(p.hex).h, 32) < 15).length <= 3, 'at most three of the seven are the same red');
+  const Ls = picks.map((p) => lch(p.hex).L);
+  assert.ok(Math.max(...Ls) - Math.min(...Ls) >= 0.55, 'and the seven span the range from dark to bright');
+}
+
+// A color family can only take so many of the seven when the picture offers anything else.
+{
+  const reds = Array.from({ length: 8 }, (_, i) => entry(hex(0.3 + i * 0.07, 0.17, 30 + (i % 3) * 3), 0.05));
+  const others = [entry('#0E0E10', 0.3), entry('#2B3A2A', 0.1), entry('#7A8F78', 0.05), entry(hex(0.82, 0.14, 85), 0.05)];
+  for (const rng of seeds(20)) {
+    const { picks } = choose([...reds, ...others], 7, rng);
+    const inFamily = picks.filter((p) => lch(p.hex).C > 0.1 && hueGap(lch(p.hex).h, 32) < 15).length;
+    assert.ok(inFamily <= 3, 'eight reds and four other colors never give more than three reds');
+    assert.ok(others.slice(1).every((o) => hexes(picks).includes(o.hex)), 'the other colors of the picture all get their chip');
+  }
+  assert.equal(choose(reds.map((r, i) => ({ ...r, hex: hex(0.3 + i * 0.07, 0.17, 30) })), 7, mulberry32(1)).picks.length, 7, 'a picture of nothing but reds still fills seven chips');
+}
+
+// The two slots the picture is built around are never near-twins: a hero that only echoes the accent is a wasted chip.
+{
+  const neutrals = [0.15, 0.3, 0.45, 0.6, 0.8].map((L) => entry(hex(L, 0, 0), 0.15));
+  const pool = [...neutrals, entry('#FC0201', 0.02), entry('#F10A06', 0.015), entry('#6E8A5A', 0.01), entry('#5B6B80', 0.01)];
+  for (const rng of seeds(20)) {
+    const { picks, roles } = choose(pool, 7, rng);
+    const both = ['accent', 'hero'].map((r) => picks[roles.indexOf(r)]).filter(Boolean);
+    assert.ok(both.length < 2 || deltaE(lab(both[0].hex), lab(both[1].hex)) >= 0.08, 'the accent and the hero are not the same red twice');
+    assert.ok(minGap(hexes(picks)) >= 0.06, 'and no two of the seven are near-twins');
+  }
 }
 
 // No tricks visible: real colors only, repeatable with a seed, and unpredictable without one.
@@ -160,6 +208,19 @@ assert.ok(new Set(seeds(20).map((r) => hexes(choose(RAINBOW, 7, r).picks).sort()
   }
   const pool = extractColors(dragonfly, 12, 12, mulberry32(1));
   assert.ok(Math.abs(pool.reduce((s, c) => s + c.share, 0) - 1) < 1e-9, 'the pool\'s shares add up to the whole picture');
+}
+{
+  // The road as a picture: fitting a shade pattern may swap two chips for colors left over, but not for more of the same red.
+  const road = patches([
+    { hex: '#010100', share: 0.5 }, { hex: '#100E07', share: 0.12 }, { hex: '#1E2113', share: 0.06 }, { hex: '#5F6C60', share: 0.02 },
+    { hex: '#FC0201', share: 0.05 }, { hex: '#D00806', share: 0.05 }, { hex: '#940E08', share: 0.04 }, { hex: '#580706', share: 0.04 },
+    { hex: '#FB2804', share: 0.03 }, { hex: '#FC4F05', share: 0.03 }, { hex: '#D14B0E', share: 0.03 }, { hex: '#F8AB0E', share: 0.02 },
+  ]);
+  for (const rng of seeds(40)) {
+    const { colors } = buildPalette(road, rng);
+    const reds = colors.filter((c) => lch(c).C > 0.1 && hueGap(lch(c).h, 32) < 15).length;
+    assert.ok(reds <= 3, 'fitting a pattern never crowds the road palette with a fourth red');
+  }
 }
 for (const h of ['#FFFFFF', '#000000', '#CC2222']) {
   assert.deepEqual(buildPalette(flat(h), mulberry32(1)).colors, Array(7).fill(h), `a flat ${h} picture gives seven exactly ${h}`);

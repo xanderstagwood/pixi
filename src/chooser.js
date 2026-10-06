@@ -6,8 +6,10 @@ import { deltaE, rgbToOklab, toOklch } from './oklab.js';
 // answer is exact, and no color is ever invented: every chip is a color the picture holds.
 
 const JND = 0.02; // colors closer than this cannot be told apart, so they count as one
-const DISTINCT = 0.06; // a clearly different color, for counting how rich a picture is
-export const PLENTIFUL = 11; // this many clearly different colors in the picture: pick a family; fewer: spread out
+const FAMILY_GAP = 25; // degrees of hue between one color family and the next: shades of one hue are one color to look at
+export const PLENTIFUL = 4; // this many color families in the picture: gather a family; fewer: spread out
+const MAX_IN_FAMILY = 3; // chips one color family may take while the picture offers anything else
+const MIN_APART = 0.06; // two chips closer than this are near-twins, so a second one is a wasted chip
 const PURE_BLACK = 0.09; // OKLab lightness below which a color is pure black (about #030303)
 const PURE_WHITE = 0.99; // and above which it is pure white (about #FCFCFC)
 const PURE_SHARE = 0.8; // pure black or white is a chip only when the picture is at least this much of it
@@ -25,11 +27,29 @@ const gap = (a, b) => Math.abs(((a - b + 540) % 360) - 180);
 const seen = (e) => { const lab = rgbToOklab(hexToRgb(e.hex)); return { ...e, lab, ...toOklch(lab) }; };
 const far = (a, b, lightness = 1) => Math.hypot(lightness * (a.lab.L - b.lab.L), a.lab.a - b.lab.a, a.lab.b - b.lab.b);
 
-/** How many clearly different colors a pool holds. */
+/**
+ * How rich a pool is in color: its hue families (a run of hues with no gap of FAMILY_GAP or more between them,
+ * so twelve reds are one) and one more if it holds any neutral. A rainbow is many; a red picture on black is two.
+ */
 export function richness(pool) {
-  const kept = [];
-  for (const e of pool.map(seen)) if (kept.every((k) => deltaE(e.lab, k.lab) >= DISTINCT)) kept.push(e);
-  return kept.length;
+  const colors = pool.map(seen);
+  const hues = colors.filter((c) => c.C >= CHROMATIC).map((c) => c.h).sort((a, b) => a - b);
+  const gaps = hues.map((h, i) => (i ? h - hues[i - 1] : h + 360 - hues[hues.length - 1])).filter((g) => g >= FAMILY_GAP).length;
+  return (hues.length ? Math.max(1, gaps) : 0) + (colors.some((c) => c.C < CHROMATIC) ? 1 : 0);
+}
+
+const sameFamily = (a, b) => (a.C >= CHROMATIC) === (b.C >= CHROMATIC) && (a.C < CHROMATIC || gap(a.h, b.h) < FAMILY_GAP);
+const roomFor = (color, others) => others.filter((o) => sameFamily(color, o)).length < MAX_IN_FAMILY;
+
+/**
+ * Whether a color may join `others` without crowding them: its family has room and it is no near-twin of any.
+ * What `fit` asks before it swaps a chip, so fitting a pattern cannot undo the spread the chooser made.
+ * @param {{hex: string}} color
+ * @param {{hex: string}[]} others
+ */
+export function joins(color, others) {
+  const c = seen(color), rest = others.map(seen);
+  return roomFor(c, rest) && rest.every((o) => far(c, o) >= MIN_APART);
 }
 
 /** The pool with colors nobody can tell apart merged, the biggest area of each lending its place. */
@@ -102,7 +122,7 @@ export function choose(pool, chips = 7, random = Math.random) {
   if (colors.length < chips) colors = reps;
 
   const accent = accentOf(colors, total);
-  const hero = colors.filter((c) => c !== accent && c.C >= ACCENT_CHROMA && c.share / total >= SIZE_FLOOR.mild).sort((a, b) => b.C - a.C)[0];
+  const hero = colors.filter((c) => c !== accent && c.C >= ACCENT_CHROMA && c.share / total >= SIZE_FLOOR.mild && (!accent || far(c, accent) >= MIN_APART)).sort((a, b) => b.C - a.C)[0];
   const dark = colors.reduce((a, c) => (c.L < a.L ? c : a));
   const light = colors.reduce((a, c) => (c.L > a.L ? c : a));
   const picks = [], roles = [];
@@ -118,7 +138,10 @@ export function choose(pool, chips = 7, random = Math.random) {
     // A family gathers round the base of the palette, not round the accent: the accent is there to stand out from it.
     const base = picks.filter((_, i) => roles[i] !== 'accent');
     const around = base.length ? base : picks;
-    const scored = rest
+    // Best a chip that is no near-twin and whose family has room; then one that is no near-twin; then whatever is left.
+    const apart = rest.filter((c) => picks.every((p) => far(c, p) >= MIN_APART));
+    const roomy = apart.filter((c) => roomFor(c, picks));
+    const scored = (roomy.length ? roomy : apart.length ? apart : rest)
       .map((c) => ({ c, d: mode === 'cohesive' ? around.reduce((s, p) => s + far(c, p, 0.5), 0) / around.length - VIVID_PULL * c.C : -Math.min(...picks.map((p) => far(c, p))) }))
       .sort((a, b) => a.d - b.d);
     const at = mode === 'cohesive' ? Math.floor(random() * Math.min(WOBBLE, scored.length)) : 0;
