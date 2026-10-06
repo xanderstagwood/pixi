@@ -1,5 +1,5 @@
-// extractColors under a seeded rng: pinned to the output it gave before seeding became incremental,
-// so the speed-up cannot change which colors a picture gives.
+// extractColors under a seeded rng, clustering in OKLab: pinned to the output it gives, so a later change cannot
+// quietly change which colors a picture gives. A full pool of twelve gives back all twelve colors the picture was made of.
 import assert from 'node:assert/strict';
 import { extractColors } from '../src/extract.js';
 import { hexToRgb } from '../src/color.js';
@@ -10,14 +10,14 @@ const HEXES = ['#C0392B', '#2980B9', '#27AE60', '#F1C40F', '#8E44AD', '#E67E22',
 const rounded = (list) => list.map((c) => [c.hex, +c.x.toFixed(4), +c.y.toFixed(4)]);
 
 assert.deepEqual(rounded(extractColors(noise(HEXES, mulberry32(7)), 7, 12, mulberry32(5))), [
-  ['#676FA7', 0.6719, 0.0156], ['#ECA118', 0.3281, 0.0156], ['#ECF0F1', 0.1406, 0.0156], ['#CB4812', 0.3906, 0.0156],
-  ['#FD79A8', 0.0781, 0.0156], ['#34495E', 0.1094, 0.0156], ['#1EA674', 0.9844, 0.0156],
+  ['#44988F', 0.9844, 0.0156], ['#ECF0F1', 0.1406, 0.0156], ['#34495E', 0.1094, 0.0156], ['#F27D77', 0.0781, 0.0156],
+  ['#CB491C', 0.3906, 0.0156], ['#F1C40F', 0.3281, 0.0156], ['#8E44AD', 0.1719, 0.0156],
 ], 'seven colors of a twelve-color noise picture are unchanged');
 
 assert.deepEqual(rounded(extractColors(noise(HEXES, mulberry32(7)), 12, 12, mulberry32(5))), [
-  ['#7F8C8D', 0.6719, 0.0156], ['#F1C40F', 0.3281, 0.0156], ['#ECF0F1', 0.1406, 0.0156], ['#C0392B', 0.0156, 0.0156],
-  ['#FD79A8', 0.0781, 0.0156], ['#34495E', 0.1094, 0.0156], ['#27AE60', 0.2344, 0.0156], ['#2980B9', 0.3594, 0.0156],
-  ['#8E44AD', 0.1719, 0.0156], ['#E67E22', 0.2031, 0.0156], ['#D35400', 0.3906, 0.0156], ['#16A085', 0.9844, 0.0156],
+  ['#7F8C8D', 0.6719, 0.0156], ['#ECF0F1', 0.1406, 0.0156], ['#34495E', 0.1094, 0.0156], ['#FD79A8', 0.0781, 0.0156],
+  ['#C0392B', 0.0156, 0.0156], ['#F1C40F', 0.3281, 0.0156], ['#8E44AD', 0.1719, 0.0156], ['#E67E22', 0.2031, 0.0156],
+  ['#27AE60', 0.2344, 0.0156], ['#2980B9', 0.3594, 0.0156], ['#16A085', 0.9844, 0.0156], ['#D35400', 0.3906, 0.0156],
 ], 'a full pool of twelve is unchanged');
 
 assert.deepEqual(rounded(extractColors(patches([{ hex: '#CC2222', share: 0.6 }, { hex: '#223344', share: 0.39 }, { hex: '#22CC44', share: 0.01 }]), 7, 12, mulberry32(9))), [

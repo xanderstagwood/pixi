@@ -1,4 +1,5 @@
 import { rgbToHex } from './color.js';
+import { oklabToRgb, rgbToOklab } from './oklab.js';
 
 const VIVID_SHARE = 0.25; // of a cluster's pixels, the most colorful quarter is what its vivid face is made of
 
@@ -18,8 +19,9 @@ function vividFace(members, data, plain) {
 }
 
 /**
- * The picture's own colors: k-means over its RGB pixels, each color the average of the pixels it
- * covers, so a palette reads as the picture does (its big areas stay big, its tones stay true).
+ * The picture's own colors: k-means over its pixels in OKLab, where distance is what an eye sees (RGB lumps
+ * dark tones together and splits light ones, and every later stage already works in OKLab), each color the
+ * average of the pixels it covers, so a palette reads as the picture does (its big areas stay big, its tones stay true).
  * This is the selection the owner preferred over a research-driven one that boosted vividness,
  * spread colors apart and blended toward the most common shade; ordering is where the perceptual
  * work lives now (arrange.js). Returns `k` clusters, each with its centroid hex and the
@@ -34,19 +36,24 @@ export function extractColors({ data, width, height }, k = 7, iterations = 12, r
   const px = [];
   for (let i = 0; i < data.length; i += 4) if (data[i + 3] >= 128) px.push(i);
   if (!px.length) return [];
-  const at = (p) => [data[p], data[p + 1], data[p + 2]];
+  const lab = new Float32Array(px.length * 3); // every pixel's OKLab color, converted once
+  px.forEach((p, i) => {
+    const { L, a, b } = rgbToOklab({ r: data[p], g: data[p + 1], b: data[p + 2] });
+    lab.set([L, a, b], i * 3);
+  });
+  const at = (i) => [lab[i * 3], lab[i * 3 + 1], lab[i * 3 + 2]];
   const dist = (a, b) => (a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2 + (a[2] - b[2]) ** 2;
 
   // Seed: a random pixel, then repeatedly the pixel farthest from every chosen centroid. Each pixel's
   // distance to its nearest centroid so far is kept and only checked against the newest one.
-  const cents = [at(px[Math.floor(random() * px.length)])];
-  const nearest = px.map((p) => dist(at(p), cents[0]));
+  const cents = [at(Math.floor(random() * px.length))];
+  const nearest = px.map((_, i) => dist(at(i), cents[0]));
   while (cents.length < k) {
     let best = 0;
     nearest.forEach((d, i) => { if (d > nearest[best]) best = i; });
-    cents.push(at(px[best]));
+    cents.push(at(best));
     const newest = cents[cents.length - 1];
-    px.forEach((p, i) => { nearest[i] = Math.min(nearest[i], dist(at(p), newest)); });
+    px.forEach((_, i) => { nearest[i] = Math.min(nearest[i], dist(at(i), newest)); });
   }
 
   const owner = new Int16Array(px.length).fill(-1);
@@ -54,14 +61,14 @@ export function extractColors({ data, width, height }, k = 7, iterations = 12, r
     const sums = cents.map(() => [0, 0, 0, 0]);
     let moved = false;
     for (let i = 0; i < px.length; i++) {
-      const p = px[i], r = data[p], g = data[p + 1], b = data[p + 2];
+      const L = lab[i * 3], a = lab[i * 3 + 1], b = lab[i * 3 + 2];
       let bi = 0, bd = Infinity;
       for (let j = 0; j < cents.length; j++) {
-        const m = cents[j], d = (r - m[0]) ** 2 + (g - m[1]) ** 2 + (b - m[2]) ** 2;
+        const m = cents[j], d = (L - m[0]) ** 2 + (a - m[1]) ** 2 + (b - m[2]) ** 2;
         if (d < bd) { bd = d; bi = j; }
       }
       if (owner[i] !== bi) { owner[i] = bi; moved = true; }
-      const s = sums[bi]; s[0] += r; s[1] += g; s[2] += b; s[3]++;
+      const s = sums[bi]; s[0] += L; s[1] += a; s[2] += b; s[3]++;
     }
     if (!moved) break; // nobody changed sides, so the centroids would come out the same again
     sums.forEach((s, j) => { if (s[3]) cents[j] = [s[0] / s[3], s[1] / s[3], s[2] / s[3]]; });
@@ -76,11 +83,11 @@ export function extractColors({ data, width, height }, k = 7, iterations = 12, r
     px.forEach((p, i) => {
       if (owner[i] !== j) return;
       members.push(p);
-      const d = dist(at(p), c);
+      const d = dist(at(i), c);
       if (d < bestD) { bestD = d; bestP = p; }
     });
     const idx = bestP / 4;
-    const hex = rgbToHex({ r: c[0], g: c[1], b: c[2] });
+    const hex = rgbToHex(oklabToRgb({ L: c[0], a: c[1], b: c[2] }));
     return {
       hex,
       vivid: vividFace(members, data, hex),
