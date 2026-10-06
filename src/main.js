@@ -40,10 +40,15 @@ let phase = ''; // what Pixi says while a phase runs, chosen once per phase so i
 let remark = ''; // what it says about a drop it turned away, for a few seconds
 let hush = 0;
 const tag = createTag($('voice'), () => remark || phase, () => phase !== '');
+const SAY_EVERY = 3400; // ms between the things she says while the colors are chosen: two or three fit the scan
+let sayings = [];
 const setStatus = (s) => {
   app.status = s;
   document.body.dataset.status = s;
+  sayings.forEach(clearTimeout);
   phase = LINES[s] ? voice.line(s) : '';
+  // A long phase gets a few remarks, one after another, not one for all of it.
+  sayings = Array.from({ length: Math.max(0, voice.count(s) - 1) }, (_, i) => setTimeout(() => { phase = voice.line(s); tag.refresh(); }, (i + 1) * SAY_EVERY));
   tag.refresh();
 };
 const say = (event) => {

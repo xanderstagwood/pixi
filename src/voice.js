@@ -79,12 +79,14 @@ export const allLines = (event) => (LINES[event] ? [...LINES[event], ...(MIXES[e
 
 /**
  * @param {() => number} random picks the line, so a seed repeats what is said
- * @returns {{line(event: string): string}} `line` is something to say for the event, never what it said last time for that event; '' for an unknown event
+ * @returns {{line(event: string): string, count(event: string): number}} `line` is something to say for the event, never what it said last time for that event; '' for an unknown event.
+ *   `count` is how many things she says during the event: two or three while the colors are chosen, one for any other, none for an unknown event
  */
 export function createVoice(random = Math.random) {
   const last = {};
   const pick = (list) => list[Math.floor(random() * list.length)];
   return {
+    count: (event) => (event === 'ANALYZING' ? 2 + (random() < 0.5 ? 0 : 1) : LINES[event] ? 1 : 0),
     line(event) {
       if (!LINES[event]) return '';
       let said = '';

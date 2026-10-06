@@ -92,6 +92,16 @@ assert.deepEqual(allLines('nonsense'), [], 'and has nothing to say');
   }
 }
 
+{
+  // While the colors are being chosen she says two or three things, not one for the whole of it. The short phases get a single remark.
+  const talk = createVoice(mulberry32(2));
+  const counts = Array.from({ length: 300 }, () => talk.count('ANALYZING'));
+  assert.ok(counts.every((c) => c === 2 || c === 3), 'she says at least two and at most three things while the colors are chosen');
+  assert.ok(counts.includes(2) && counts.includes(3), 'sometimes two, sometimes three');
+  for (const event of EVENTS.filter((e) => e !== 'ANALYZING')) assert.equal(talk.count(event), 1, `${event} is a single remark`);
+  assert.equal(talk.count('nonsense'), 0, 'and an unknown event has none');
+}
+
 const a = createVoice(mulberry32(7)), b = createVoice(mulberry32(7));
 assert.deepEqual(EVENTS.map((e) => a.line(e)), EVENTS.map((e) => b.line(e)), 'a seed repeats what is said');
 
