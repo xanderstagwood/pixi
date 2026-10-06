@@ -2,6 +2,8 @@
 // so the speed-up cannot change which colors a picture gives.
 import assert from 'node:assert/strict';
 import { extractColors } from '../src/extract.js';
+import { hexToRgb } from '../src/color.js';
+import { deltaE, rgbToOklab, toOklch } from '../src/oklab.js';
 import { mulberry32, noise, patches } from './img.mjs';
 
 const HEXES = ['#C0392B', '#2980B9', '#27AE60', '#F1C40F', '#8E44AD', '#E67E22', '#ECF0F1', '#16A085', '#34495E', '#D35400', '#7F8C8D', '#FD79A8'];
@@ -22,5 +24,16 @@ assert.deepEqual(rounded(extractColors(patches([{ hex: '#CC2222', share: 0.6 }, 
   ['#CC2222', 0.0156, 0.0156], ['#22CC44', 0.7031, 0.9844], ['#223344', 0.2344, 0.6094], ['#CC2222', 0.0156, 0.0156],
   ['#CC2222', 0.0156, 0.0156], ['#CC2222', 0.0156, 0.0156], ['#CC2222', 0.0156, 0.0156],
 ], 'a small vivid patch still earns its own color');
+
+// A cluster is an average, so a vivid patch on a dark ground comes out muted. `vivid` is what its most vivid pixels look like.
+{
+  const lab = (h) => rgbToOklab(hexToRgb(h));
+  const [one] = extractColors(patches([{ hex: '#400808', share: 0.75 }, { hex: '#E01010', share: 0.25 }]), 1, 12, mulberry32(1));
+  assert.equal(typeof one.vivid, 'string', 'every cluster has a vivid face');
+  assert.ok(toOklch(lab(one.vivid)).C > toOklch(lab(one.hex)).C + 0.05, 'a muddy average has a clearly more vivid face');
+  assert.ok(deltaE(lab(one.vivid), lab('#E01010')) < 0.03, 'and it is the color the vivid pixels really are');
+  const flat = extractColors(patches([{ hex: '#336699', share: 1 }]), 3, 12, mulberry32(1));
+  assert.ok(flat.every((c) => c.vivid === '#336699'), 'a flat picture has nothing vivid to find, and keeps its color exactly');
+}
 
 console.log('ok 05-extract');

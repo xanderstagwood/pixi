@@ -19,7 +19,8 @@ const POOL = 12; // colors of a picture the seven are chosen from
  *   null when the picture has no opaque pixel
  */
 export function buildPalette(pixels, random = Math.random, chips = 7) {
-  const pool = extractColors(pixels, POOL, undefined, random);
+  // A cluster shows as its vivid face: the palette is made of the picture's best colors, not its averages.
+  const pool = extractColors(pixels, POOL, undefined, random).map((c) => ({ ...c, hex: c.vivid }));
   if (!pool.length) return null;
 
   const { picks, roles, mode, spare } = choose(pool, chips, random);
