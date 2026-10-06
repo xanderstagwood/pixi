@@ -1,0 +1,3 @@
+words.json is built by scripts/words/build.mjs. The whimsy words are written by hand, in the register of the Wordnik list
+"Fairy Words" (https://www.wordnik.com/lists/fairy-words, by beatavirgo), which served as a tone reference. The words that
+point at a theme (k) are the color-name words that the Datamuse API (https://www.datamuse.com/api/) relates to its seeds.

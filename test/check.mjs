@@ -261,3 +261,4 @@ import './20-ink.mjs';
 import './21-credit.mjs';
 import './22-gesture.mjs';
 import './23-colorname.mjs';
+import './24-words.mjs';
