@@ -1,5 +1,5 @@
 import { frames } from './anim.js';
-import { GROUND, glint, hexToRgb, hit, rgbToHex } from './color.js';
+import { GROUND, glint, hit, liftToGround, rgbToHex } from './color.js';
 import { plant } from './plant.js';
 import { createTwinkle } from './twinkle.js';
 import { centerDev, unit } from './pixel.js';
@@ -8,7 +8,6 @@ const CELL_PX = 16; // font pixels per bloxel
 const GROW = 0.14; // share of the sweep a block takes to grow to full size
 const KEEP_SIDE = 1024; // longest side of the private copy of the image, plenty for any screen's grid
 const easeOut = (u) => 1 - (1 - u) ** 3;
-const luma = (r, g, b) => 0.2126 * r + 0.7152 * g + 0.0722 * b;
 
 /**
  * Turns the image on `canvas` into square blocks ("bloxels") with a 2 font pixel gap,
@@ -38,8 +37,6 @@ export function createBloxels(canvas, source, cardCells, seeds = []) {
   img.getContext('2d').drawImage(source, 0, 0, img.width, img.height);
   const iw = img.width, ih = img.height; // `img` is zeroed on release
   const ctx = canvas.getContext('2d');
-  const ground = hexToRgb(GROUND);
-  const floor = luma(ground.r, ground.g, ground.b);
 
   /** Image-space fractions (0-1) to the cell that holds them in layout `L`, clamped into the grid. */
   const cellIn = (L, fx, fy) => ({
@@ -104,11 +101,10 @@ export function createBloxels(canvas, source, cardCells, seeds = []) {
     );
     base.width = base.height = 0;
 
-    // A block darker than the ground would sit inside a lighter grid line, which reads as a light
-    // rim around dark bloxels. So a block never goes darker than the ground: it merges into it.
     const shown = new Uint8ClampedArray(px);
     for (let i = 0; i < cols * rows; i++) {
-      if (luma(px[i * 4], px[i * 4 + 1], px[i * 4 + 2]) < floor) shown.set([ground.r, ground.g, ground.b], i * 4);
+      const { r, g, b } = liftToGround({ r: px[i * 4], g: px[i * 4 + 1], b: px[i * 4 + 2] });
+      shown.set([r, g, b], i * 4);
     }
 
     const count = cols * rows;

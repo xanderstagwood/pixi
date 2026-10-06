@@ -252,3 +252,4 @@ import './01-palette.mjs';
 import './02-new-card.mjs';
 import './03-paste.mjs';
 import './04-plant.mjs';
+import './05-dark.mjs';

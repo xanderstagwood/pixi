@@ -14,6 +14,18 @@ export const hexToRgb = (hex) => {
 export const rgbToHex = ({ r, g, b }) =>
   '#' + [r, g, b].map((v) => Math.round(Math.min(255, Math.max(0, v))).toString(16).padStart(2, '0')).join('').toUpperCase();
 
+const GROUND_L = rgbToOklab(hexToRgb(GROUND)).L;
+/**
+ * A bloxel darker than the ground would sit inside a lighter grid line and read as a light rim, so it is
+ * lifted to the ground's lightness. Hue and chroma stay, so a dark red is still reddish and not gray-black.
+ * @param {{r: number, g: number, b: number}} rgb
+ * @returns {{r: number, g: number, b: number}} the same color when it is no darker than the ground
+ */
+export function liftToGround(rgb) {
+  const { L, C, h } = toOklch(rgbToOklab(rgb));
+  return L < GROUND_L ? oklchToRgb({ L: GROUND_L, C, h }) : rgb;
+}
+
 export function rgbToHsl({ r, g, b }) {
   r /= 255; g /= 255; b /= 255;
   const max = Math.max(r, g, b), min = Math.min(r, g, b), d = max - min;
