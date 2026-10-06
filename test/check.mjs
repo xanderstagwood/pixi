@@ -257,3 +257,4 @@ import './06-chooser.mjs';
 import './07-voice.mjs';
 import './08-triage.mjs';
 import './09-harmony.mjs';
+import './10-scheme.mjs';
