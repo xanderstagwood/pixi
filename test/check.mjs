@@ -231,3 +231,4 @@ import './17-contrast.mjs';
 import './18-photos.mjs';
 import './19-scale.mjs';
 import './20-ink.mjs';
+import './21-credit.mjs';
