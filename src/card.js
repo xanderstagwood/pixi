@@ -20,7 +20,7 @@ export const EXPORT_SCALE = 4;
 // in the footer's 16px line it sits 11px down.
 const LABEL_BASE = 1 + (CHIP.h - 2 - 6) / 2 + 6;
 const FOOT_BASE = 11;
-// The Pixi logo, drawn from Sprite's 6x6 icon: the cells that are filled.
+// The Pixi logo, drawn from Sprite's 8x8 icon: the cells that are filled, minus its two empty top rows.
 const PIXI = [[0, 0], [3, 0], [1, 1], [3, 2], [5, 2], [1, 3], [3, 3], [0, 4], [3, 4], [2, 5]];
 
 let cells = { cols: 20, rows: 30 };
