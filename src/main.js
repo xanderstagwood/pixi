@@ -1,4 +1,4 @@
-import { away, rand, sleep, unlessAway, watchFrames } from './anim.js';
+import { away, rand, returned, sleep, unlessAway, watchFrames } from './anim.js';
 import { hexToRgb, sequence } from './color.js';
 import { categoryName, numbered } from './credit.js';
 import { createBloxels } from './bloxel.js';
@@ -36,6 +36,7 @@ const T = {
 // About how long an analysis takes with its show. A tab that is not showing takes as long (on timers, not frames), so
 // nobody can tell the show is only for them.
 const SHOW_MS = 7000;
+const MIN_WAIT = 3000; // someone who comes back with less than this left of the show gets the card now
 const MAX_SIDE = 2048; // the working copy of a huge image never exceeds this
 // Limits on what is accepted at all, so five huge files cannot strain a phone or a small laptop.
 const MAX_BYTES = 25 * 1024 * 1024; // per file, so at most 225MB in a batch
@@ -237,7 +238,14 @@ async function analyzeOne(file, last) {
     await until(Promise.all(clusters.map((_, slot) => sleep(slot * T.lockGap).then(() => stack.lock(slot)))));
     await until(sleep(T.hold));
     scan.clear();
-    if (away()) await pad(); // the show was cut short: the time it takes is not
+    if (away()) { // the show was cut short: the time it takes is not. If they come back meanwhile, what they missed plays fast
+      if (await until(Promise.race([pad().then(() => false), returned().then(() => true)]))) {
+        const left = SHOW_MS - (performance.now() - began); // with under MIN_WAIT left they get no more waiting, only the chips filled in
+        await until(Promise.all([bloxels.ripple(500, signal), ...clusters.map((_, i) => stack.swapTo(slotOf[i], candidates[i][keep[i]]))]));
+        await until(Promise.all(clusters.map((_, slot) => sleep(slot * 50).then(() => stack.lock(slot)))));
+        if (left >= MIN_WAIT) await pad();
+      }
+    }
 
     const palette = { name: defaultName(file), colors: plan.colors, coordinates: plan.coordinates, grid: bloxels.keep(), copied: -1, createdAt: Date.now(), credit: file.credit };
 

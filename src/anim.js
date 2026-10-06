@@ -6,6 +6,21 @@ const leaving = new Set(); // what is waiting on the tab being left
 let watching = false;
 let stalled = false; // frames have stopped coming though the tab is not hidden: its window is on another workspace, say
 
+const coming = new Set(); // what is waiting on the tab coming back
+const welcome = () => { [...coming].forEach((done) => done()); coming.clear(); };
+function watch() {
+  if (watching) return;
+  watching = true;
+  document.addEventListener('visibilitychange', () => { if (document.hidden) leaving.forEach((stop) => stop()); else if (!stalled) welcome(); });
+}
+
+/** Resolves when the show can be seen again: at once if it can be now, else when the tab is shown or frames resume. */
+export const returned = () => new Promise((done) => {
+  if (!away()) return done();
+  watch();
+  coming.add(done);
+});
+
 /** Whether the show cannot be seen right now: the tab is hidden, or its frames have stopped. */
 export const away = () => document.hidden || stalled;
 
@@ -17,7 +32,7 @@ export const away = () => document.hidden || stalled;
 export function watchFrames() {
   const STALL_MS = 1000;
   let last = performance.now(), beat = last, live = true;
-  const frame = () => { last = performance.now(); stalled = false; if (live) raf = requestAnimationFrame(frame); };
+  const frame = () => { last = performance.now(); if (stalled) { stalled = false; welcome(); } if (live) raf = requestAnimationFrame(frame); };
   let raf = requestAnimationFrame(frame);
   const timer = setInterval(() => {
     const now = performance.now(), late = now - beat > 2500;
@@ -35,10 +50,7 @@ export function watchFrames() {
  */
 export const unlessAway = (promise) => new Promise((done, fail) => {
   if (document.hidden || stalled) { promise.catch(() => {}); return done(); }
-  if (!watching) {
-    watching = true;
-    document.addEventListener('visibilitychange', () => { if (document.hidden) leaving.forEach((stop) => stop()); });
-  }
+  watch();
   leaving.add(done);
   promise.then(done, fail).finally(() => leaving.delete(done));
 });
