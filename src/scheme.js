@@ -5,7 +5,7 @@ import { rgbToOklab, toOklch } from './oklab.js';
 // how many hue families it has and how far apart they sit. Nothing here knows the picture's name or subject, so
 // any picture gets an honest answer, and a scheme is only named when the picture really holds its families.
 
-const CHROMATIC = 0.04; // chroma at which a color reads as a color and not a gray
+export const CHROMATIC = 0.04; // chroma at which a color reads as a color and not a gray
 const FAMILY_GAP = 25; // degrees of hue between one color family and the next
 const NEUTRAL_DOMINANT = 0.7; // this much neutral and the picture is neutrals with a few pops
 const SIGNIFICANT = 0.08; // share of the picture's color a family needs to count as one of its hues
@@ -21,7 +21,7 @@ const gap = (a, b) => Math.abs(((a - b + 540) % 360) - 180);
 export const seen = (e) => { const lab = rgbToOklab(hexToRgb(e.hex)); return { ...e, lab, ...toOklch(lab) }; };
 
 /** Groups chromatic colors into hue families: runs of hues with no gap of FAMILY_GAP or more, joined across the wrap at 0. */
-function familiesOf(colors) {
+export function familiesOf(colors) {
   const sorted = colors.filter((c) => c.C >= CHROMATIC).sort((a, b) => a.h - b.h);
   const groups = [];
   for (const c of sorted) {
