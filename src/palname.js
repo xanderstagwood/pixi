@@ -1,3 +1,4 @@
+import { nameColors } from './colorname.js';
 import { hexToRgb } from './color.js';
 import { rgbToOklab, toOklch } from './oklab.js';
 
@@ -51,4 +52,16 @@ export function createPalNamer(words) {
     }
     return title(`${mood} ${pick(theme.n)}`).slice(0, FITS);
   };
+}
+
+let namer = null;
+
+/** A fresh palette's name from its colors, or '' while the word lists are not here (the caller keeps what it had). */
+export const namePalette = (colors) => (namer ? namer(colors, nameColors(colors)) : '');
+
+/** Fetches the word lists (see data/words.NOTICE). */
+export async function loadPalNames() {
+  const response = await fetch('data/words.json');
+  if (!response.ok) throw new Error(`palette names: ${response.status}`);
+  namer = createPalNamer(await response.json());
 }

@@ -5,6 +5,7 @@ import { buildPalette } from './palette.js';
 import { imagesFrom } from './paste.js';
 import { categoryFor, direction, resist, springBack } from './gesture.js';
 import { loadColorNames } from './colorname.js';
+import { loadPalNames, namePalette } from './palname.js';
 import { createPicker, loadPhotos } from './photos.js';
 import { createQueue } from './queue.js';
 import { CHIPS, cardCells, cardPng, chipAt, layout, paintTwinkle, renderCard, tagAt, twinkleCells } from './card.js';
@@ -153,10 +154,13 @@ function cardRect() {
   return new DOMRect(c.x - w / 2, c.y - h / 2, w, h);
 }
 
-/** What a fresh card is called: its photo's category (numbered if a card already has the name), or the first 16 characters of the file's name without its extension. */
-const defaultName = (file) => (file.category
-  ? numbered(categoryName(file.category), [...track.querySelectorAll('.card.palette')].map((c) => c.palette.name))
-  : file.name.replace(/\.[^.]*$/, '').trim().slice(0, 16));
+/** What a fresh card is called: its photo's category, or a name made from its colors (numbered if a card already has it), or if the word lists never came, the first 16 characters of the file's name without its extension. */
+function defaultName(file, colors) {
+  const taken = () => [...track.querySelectorAll('.card.palette')].map((c) => c.palette.name);
+  if (file.category) return numbered(categoryName(file.category), taken());
+  const made = namePalette(colors);
+  return made ? numbered(made, taken()) : file.name.replace(/\.[^.]*$/, '').trim().slice(0, 16);
+}
 
 /** @param {boolean} last no more images are waiting, so the name field may take focus */
 async function analyze(file, last) {
@@ -241,7 +245,7 @@ async function analyzeOne(file, last, deadline) {
     };
     await play(1);
 
-    const palette = { name: defaultName(file), colors: plan.colors, coordinates: plan.coordinates, grid: bloxels.keep(), copied: -1, createdAt: Date.now(), credit: file.credit };
+    const palette = { name: defaultName(file, plan.colors), colors: plan.colors, coordinates: plan.coordinates, grid: bloxels.keep(), copied: -1, createdAt: Date.now(), credit: file.credit };
     session.locked = true; // the card is made from here on: too late to cancel
     const card = carousel.insert(palette);
     wire(card);
@@ -641,8 +645,9 @@ watchPixelSnap(() => {
 });
 // Canvas text falls back to a plain font if it is drawn before the pixel font arrives, so
 // wait for the font before analysing, and redraw the cards whenever a font finishes loading.
-// The chips are named too, but a name list that fails to load only leaves them showing their hex.
-const fontReady = Promise.all([document.fonts.load('16px "Stagwood Sprite 64"'), loadColorNames().catch(() => {})]);
+// The chips and the palettes are named too, but word lists that fail to load only leave the chips showing their hex and
+// the palettes named after their files.
+const fontReady = Promise.all([document.fonts.load('16px "Stagwood Sprite 64"'), loadColorNames().catch(() => {}), loadPalNames().catch(() => {})]);
 // Cards from earlier visits come back once the pixel font is ready to draw their text.
 fontReady.then(() => {
   const kept = store.load();
