@@ -1,9 +1,10 @@
 // Palette cards, kept in the browser between visits. Only what a card is drawn from is kept: its
-// name, its seven colors and its bloxel grid (three bytes a cell). The image itself never is.
+// name, its seven colors, who to credit for its photo and its bloxel grid (three bytes a cell). The image itself never is.
 // localStorage is enough: it is small and simple, and losing it only means the cards are gone.
 
 const KEY = 'pixi.palettes.v1';
 const HEX = /^#[0-9A-F]{6}$/i;
+const UNSPLASH = /^https:\/\/unsplash\.com\//; // a stored link is only ever followed if it goes to Unsplash
 
 /** RGBA bytes to a base64 string of just the RGB, three bytes a cell. */
 export function pack(rgba) {
@@ -33,8 +34,13 @@ const toStored = (p) => ({
   name: p.name,
   colors: p.colors,
   createdAt: p.createdAt,
+  credit: p.credit,
   grid: { cols: p.grid.cols, rows: p.grid.rows, cx: p.grid.cx, cy: p.grid.cy, rgb: pack(p.grid.rgb) },
 });
+
+/** A stored credit if it names an artist and links only to Unsplash, else nothing. */
+const creditOf = (c) => (typeof c?.artist === 'string' && UNSPLASH.test(c.artistLink) && UNSPLASH.test(c.link)
+  ? { artist: c.artist.slice(0, 80), artistLink: c.artistLink, link: c.link } : undefined);
 
 /** A stored card back into a palette, or null if it does not look right (so bad data is skipped, not trusted). */
 function fromStored(o) {
@@ -45,7 +51,7 @@ function fromStored(o) {
   if (!rgb) return null;
   return {
     name: o.name.slice(0, 30), colors: o.colors, coordinates: [], copied: -1,
-    createdAt: Number.isFinite(o.createdAt) ? o.createdAt : Date.now(),
+    createdAt: Number.isFinite(o.createdAt) ? o.createdAt : Date.now(), credit: creditOf(o.credit),
     grid: { cols: g.cols, rows: g.rows, cx: g.cx, cy: g.cy, rgb },
   };
 }

@@ -151,6 +151,21 @@ createStore(box).save([card('one'), card('two')]);
 const restored = createStore(box).load();
 assert.deepEqual(restored.map((p) => p.name), ['one', 'two']);
 assert.deepEqual([...restored[0].grid.rgb], [...rgba]);
+// A card made from an Unsplash photo keeps who to credit; a credit that does not point at Unsplash is dropped, the card is not.
+{
+  const credit = { artist: 'Dikaseva', artistLink: 'https://unsplash.com/@dikaseva?utm_source=pixi&utm_medium=referral', link: 'https://unsplash.com/photos/x-G-H4JusRJlw?utm_source=pixi&utm_medium=referral' };
+  const kept = fake();
+  createStore(kept).save([{ ...card('lizard'), credit }, card('own')]);
+  const [withCredit, without] = createStore(kept).load();
+  assert.deepEqual(withCredit.credit, credit, 'the credit survives a round trip');
+  assert.equal(without.credit, undefined, 'a card of one\'s own picture has none');
+  const stored = JSON.parse(kept.getItem('pixi.palettes.v1'));
+  stored[0].credit = { ...credit, link: 'javascript:alert(1)' };
+  kept.setItem('pixi.palettes.v1', JSON.stringify(stored));
+  const [safe] = createStore(kept).load();
+  assert.equal(safe.credit, undefined, 'a credit linking anywhere but Unsplash is not trusted');
+  assert.equal(safe.name, 'lizard', 'but its card is kept');
+}
 const sample = fake();
 createStore(sample).save([card('ok')]);
 const good = JSON.parse(sample.getItem('pixi.palettes.v1'))[0];
