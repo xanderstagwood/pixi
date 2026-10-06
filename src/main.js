@@ -1,7 +1,6 @@
-import { away, rand, returned, sleep, unlessAway, watchFrames } from './anim.js';
+import { rand, skipped, sleep, unlessAway, watchFrames } from './anim.js';
 import { hexToRgb, sequence } from './color.js';
 import { categoryName, numbered } from './credit.js';
-import { createBloxels } from './bloxel.js';
 import { buildPalette } from './palette.js';
 import { imagesFrom } from './paste.js';
 import { categoryFor, direction, resist, springBack } from './gesture.js';
@@ -33,10 +32,10 @@ const T = {
   stagger: 140, roam: [7000, 10500], hits: [12, 16], // hits sets the length of the scan; roam is only the safety cap
   chargeToBurst: 1200,
 };
-// About how long an analysis takes with its show. A tab that is not showing takes as long (on timers, not frames), so
-// nobody can tell the show is only for them.
+// About how long an analysis takes with its show. A tab that is away is waited for that long, and the show resumes if
+// the user comes back in time, so nobody can tell the show is only for them.
 const SHOW_MS = 7000;
-const MIN_WAIT = 3000; // someone who comes back with less than this left of the show gets the card now
+const MIN_WAIT = 3000; // someone who comes back with less than this left of the show gets the card now, with the chips filled in
 const MAX_SIDE = 2048; // the working copy of a huge image never exceeds this
 // Limits on what is accepted at all, so five huge files cannot strain a phone or a small laptop.
 const MAX_BYTES = 25 * 1024 * 1024; // per file, so at most 225MB in a batch
@@ -160,7 +159,7 @@ const defaultName = (file) => (file.category
 
 /** @param {boolean} last no more images are waiting, so the name field may take focus */
 async function analyze(file, last) {
-  const unwatch = watchFrames(); // so a window on another workspace, which gets no frames and no word of it, is told from a busy one
+  const unwatch = watchFrames(performance.now() + SHOW_MS, MIN_WAIT); // a tab that is away is waited for, up to the show's time
   try { await analyzeOne(file, last); } finally { unwatch(); }
 }
 
@@ -170,36 +169,16 @@ async function analyzeOne(file, last) {
   // wherever the run has got to, and the catch below fades the screen away without making a card.
   session = { scan: null, abort: new AbortController(), locked: false };
   const { signal } = session.abort;
-  const began = performance.now();
   const until = (p) => {
     signal.throwIfAborted();
     return Promise.race([p, new Promise((_, fail) => signal.addEventListener('abort', () => fail(signal.reason), { once: true }))]);
   };
-  // The rest of the time the show would have taken, on a plain timer: it runs in a hidden tab, and cancel can still end it.
-  const pad = () => until(new Promise((done) => setTimeout(done, Math.max(0, SHOW_MS - (performance.now() - began)))));
   let work;
   try { await until(fontReady); work = await until(load(file)); } catch (e) { session = null; if (!signal.aborted) say(e.reason ?? 'unreadable'); return; }
   const pixels = sample(work);
   const plan = buildPalette(pixels, Math.random, CHIPS);
   if (!plan) { session = null; say('empty'); return; }
   const { clusters, candidates, keep, slotOf } = plan;
-
-  if (away()) { // nobody is watching, and a hidden tab stops animation: the work is done without the show, in the show's time
-    const seeds = clusters.map((c, i) => ({ hex: candidates[i][keep[i]], x: c.x, y: c.y }));
-    const bloxels = createBloxels(document.createElement('canvas'), work, cardCells, seeds);
-    const grid = bloxels.keep();
-    bloxels.release();
-    work.width = work.height = 0;
-    try { await pad(); } catch { session = null; return; } // cancelled
-    const card = carousel.insert({ name: defaultName(file), colors: plan.colors, coordinates: plan.coordinates, grid, copied: -1, createdAt: Date.now(), credit: file.credit });
-    wire(card);
-    paintCard(card);
-    card.style.visibility = '';
-    persist();
-    syncTwinkle();
-    session = null;
-    return;
-  }
 
   try {
     carousel.focus(Infinity, true);
@@ -233,19 +212,12 @@ async function analyzeOne(file, last) {
     session.scan = scan;
     await until(scan.finished);
     await until(Promise.all(landing));
+    if (skipped()) await until(Promise.all(clusters.map((_, i) => stack.swapTo(slotOf[i], candidates[i][keep[i]])))); // the show was given up: the chips still show what was kept
     bloxels.twinkle.stop(); // the lit ones fade out well before the window closes
 
     await until(Promise.all(clusters.map((_, slot) => sleep(slot * T.lockGap).then(() => stack.lock(slot)))));
     await until(sleep(T.hold));
     scan.clear();
-    if (away()) { // the show was cut short: the time it takes is not. If they come back meanwhile, what they missed plays fast
-      if (await until(Promise.race([pad().then(() => false), returned().then(() => true)]))) {
-        const left = SHOW_MS - (performance.now() - began); // with under MIN_WAIT left they get no more waiting, only the chips filled in
-        await until(Promise.all([bloxels.ripple(500, signal), ...clusters.map((_, i) => stack.swapTo(slotOf[i], candidates[i][keep[i]]))]));
-        await until(Promise.all(clusters.map((_, slot) => sleep(slot * 50).then(() => stack.lock(slot)))));
-        if (left >= MIN_WAIT) await pad();
-      }
-    }
 
     const palette = { name: defaultName(file), colors: plan.colors, coordinates: plan.coordinates, grid: bloxels.keep(), copied: -1, createdAt: Date.now(), credit: file.credit };
 

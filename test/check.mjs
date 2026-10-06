@@ -12,7 +12,7 @@ import { zip } from '../src/export/zip.js';
 import { createQueue } from '../src/queue.js';
 import { createStore, pack, unpack } from '../src/store.js';
 import { createTwinkle } from '../src/twinkle.js';
-import { frames, returned, unlessAway } from '../src/anim.js';
+import { frames, unlessAway } from '../src/anim.js';
 
 assert.equal(mix('#000000', '#FFFFFF', 0.5), '#808080');
 
@@ -222,16 +222,6 @@ globalThis.cancelAnimationFrame ??= clearTimeout;
   await new Promise((r) => setTimeout(r, 30));
   assert.equal(ticks, seen, 'a cut-short frame loop does not wake up again');
   await unlessAway(new Promise(() => {}));
-  // And someone waiting for the tab to come back is told the moment it does, or at once if it is already here.
-  let back = false;
-  returned().then(() => { back = true; });
-  await new Promise((r) => setTimeout(r, 20));
-  assert.equal(back, false, 'still waiting while the tab is hidden');
-  document.hidden = false;
-  listeners.forEach((f) => f());
-  await new Promise((r) => setTimeout(r, 20));
-  assert.equal(back, true, 'told when the tab is shown again');
-  await returned();
   delete globalThis.document;
 }
 
