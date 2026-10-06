@@ -4,6 +4,9 @@ import { rgbToOklab, toOklch } from './oklab.js';
 
 const DARK = 0.5, LIGHT = 0.7; // mean lightness: below is dark, from here light
 const VIVID = 0.1; // mean chroma from which a palette is loud rather than soft
+const AGREE = 0.12; // how far, in OKLab, a chip's color may be from the color its word usually has before the word stops counting much
+const NAMED = 0.1; // what a chip whose name uses a theme's word adds to the theme, beside how well the theme's colors cover the palette
+const MIN_SCORE = 0.05; // a theme that suits the palette less than this is no theme
 const FITS = 24; // characters the name box on a card holds, at the most (it is 160 font pixels, a letter about 6)
 const TRIES = 12;
 
@@ -19,23 +22,39 @@ const SMALL = new Set(['of', 'the', '&']); // left lower case inside a name
 const title = (text) => text.replace(/(^|\s)([a-z]+)/g, (all, space, word, at) => (at > 0 && SMALL.has(word) ? all : space + word[0].toUpperCase() + word.slice(1)));
 
 /**
- * @param {{themes: Record<string, {k: string, n: string, a: string, v: string}>, moods: Record<string, string>}} words data/words.json
- * @returns {(colors: string[], chipNames: string[], random?: () => number) => string} a palette's name: a theme that its
- *   chips' names point at (the most chips win; none at all is wonder), the mood of its colors, and a shape to join them.
- *   Words are drawn at random from `random`, so a fixed one repeats a name.
+ * @param {{themes: Record<string, {k: string, n: string, a: string, v: string}>, moods: Record<string, string>, colors?: Record<string, string>}} words
+ *   data/words.json; `colors` is the hex each theme word usually has in a color name
+ * @returns {(colors: string[], chipNames: string[], random?: () => number) => string} a palette's name: the theme whose
+ *   words' usual colors cover the palette best (a chip whose name uses a theme's word helps it a little, as far as the
+ *   chip has that word's color; none suiting is wonder), the mood of its colors, and a shape to join them. Words are
+ *   drawn at random from `random`, so a fixed one repeats a name.
  */
 export function createPalNamer(words) {
   const split = (text) => text.split(',');
   const themes = Object.entries(words.themes).map(([name, t]) => ({ name, k: new Set(split(t.k)), n: split(t.n), a: split(t.a), v: split(t.v) }));
   const moods = Object.fromEntries(Object.entries(words.moods).map(([name, text]) => [name, split(text)]));
   const wonder = themes.find((t) => t.name === 'wonder');
+  const usual = new Map(Object.entries(words.colors ?? {}).map(([w, hex]) => [w, rgbToOklab(hexToRgb(`#${hex}`))]));
+  themes.forEach((t) => { t.hues = [...t.k].map((w) => usual.get(w)).filter(Boolean); });
+  // 1 for a chip with the color a word usually has, falling away as it differs; a word with no usual color counts in full.
+  const near = (u, chip) => {
+    const far = Math.hypot(u.L - chip.L, u.a - chip.a, u.b - chip.b) / AGREE;
+    return Math.exp(-far * far);
+  };
+  const agreement = (word, chip) => (usual.has(word) ? near(usual.get(word), chip) : 1);
 
   return (colors, chipNames, random = Math.random) => {
     const pick = (list) => list[Math.floor(random() * list.length)];
-    const seen = chipNames.flatMap((name) => name.toLowerCase().match(/[a-z]+/g) ?? []);
-    const votes = themes.map((t) => seen.filter((w) => t.k.has(w)).length);
+    const labs = colors.map((hex) => rgbToOklab(hexToRgb(hex)));
+    // How well a theme suits the palette: its colors cover the chips (each as covered as its nearest theme color is near
+    // it), and the chips cover its colors (a theme of every color suits no palette in particular).
+    const mean = (list, of) => list.reduce((sum, x) => sum + of(x), 0) / (list.length || 1);
+    const votes = themes.map((t) => mean(labs, (chip) => Math.max(0, ...t.hues.map((u) => near(u, chip)))) * mean(t.hues, (u) => Math.max(0, ...labs.map((chip) => near(u, chip)))));
+    chipNames.forEach((name, i) => {
+      for (const word of name.toLowerCase().match(/[a-z]+/g) ?? []) themes.forEach((t, j) => { if (t.k.has(word)) votes[j] += NAMED * agreement(word, labs[i]); });
+    });
     const top = Math.max(...votes);
-    const theme = top ? pick(themes.filter((_, i) => votes[i] === top)) : wonder;
+    const theme = top >= MIN_SCORE ? pick(themes.filter((_, i) => votes[i] > top - 1e-9)) : wonder;
     const mood = pick(moods[moodOf(colors)]);
     const shapes = [
       () => `${mood} ${pick(theme.n)}`,

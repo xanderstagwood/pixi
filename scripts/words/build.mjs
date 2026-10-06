@@ -6,10 +6,13 @@
 // more than TWO themes belongs to none of them, unless it is one of a theme's own seeds.
 // Run by hand when the seeds change: node scripts/words/build.mjs (needs the network; the app never does).
 import { readFileSync, writeFileSync } from 'node:fs';
+import { hexToRgb, rgbToHex } from '../../src/color.js';
+import { oklabToRgb, rgbToOklab } from '../../src/oklab.js';
 
 const here = new URL('.', import.meta.url);
 const seeds = JSON.parse(readFileSync(new URL('seeds.json', here), 'utf8'));
-const vocab = new Set(JSON.parse(readFileSync(new URL('../../data/colornames.json', here), 'utf8')).flatMap(([name]) => name.toLowerCase().match(/[a-z]+/g)));
+const names = JSON.parse(readFileSync(new URL('../../data/colornames.json', here), 'utf8'));
+const vocab = new Set(names.flatMap(([name]) => name.toLowerCase().match(/[a-z]+/g)));
 const DRAW = /^[a-z]{3,12}$/; // what a chip's pixel font draws, and fits
 
 async function ask(params, tries = 4) {
@@ -40,8 +43,22 @@ async function related(list) {
   return new Set(hits.map((h) => h.word.toLowerCase()).filter((w) => vocab.has(w)));
 }
 
+/** The color a word usually has in a color name: the average, in OKLab, of the colors whose names use it (as hex without the #). */
+function usualColors(wanted) {
+  const sums = new Map();
+  for (const [name, hex] of names) {
+    const { L, a, b } = rgbToOklab(hexToRgb(hex));
+    for (const word of new Set(name.toLowerCase().match(/[a-z]+/g))) {
+      if (!wanted.has(word)) continue;
+      const s = sums.get(word) ?? [0, 0, 0, 0];
+      sums.set(word, [s[0] + L, s[1] + a, s[2] + b, s[3] + 1]);
+    }
+  }
+  return Object.fromEntries([...sums].map(([word, [L, a, b, n]]) => [word, rgbToHex(oklabToRgb({ L: L / n, a: a / n, b: b / n })).slice(1).toLowerCase()]));
+}
+
 const words = (list) => [...new Set(list.filter((w) => DRAW.test(w)))].join(',');
-const out = { themes: {}, moods: {} };
+const out = { themes: {}, moods: {}, colors: {} };
 const meant = {};
 await each(Object.entries(seeds.themes), async ([name, t]) => { meant[name] = await related(t.seeds.filter((w) => !w.includes(' '))); });
 const spread = new Map();
@@ -51,6 +68,7 @@ for (const [name, t] of Object.entries(seeds.themes)) {
   const k = [...new Set([...own, ...[...meant[name]].filter((w) => spread.get(w) <= TWO)])];
   out.themes[name] = { k: k.join(','), n: words(t.n), a: words(t.a), v: words(t.v) };
 }
+out.colors = usualColors(new Set(Object.values(out.themes).flatMap((t) => t.k.split(','))));
 for (const [name, list] of Object.entries(seeds.moods)) out.moods[name] = words(list);
 
 writeFileSync(new URL('../../data/words.json', here), JSON.stringify(out));

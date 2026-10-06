@@ -21,14 +21,36 @@ assert.equal(moodOf(['#7A0A0A', '#8A1A00']), 'dark-vivid', 'deep and saturated i
 const sea = ['Lagoon Mist', 'Tide Pool', 'Slate'];
 const used = new Set();
 for (let seed = 1; seed < 40; seed++) {
-  const n = name(['#223344', '#334455'], sea, mulberry32(seed));
+  const n = name(['#223344', '#334455', '#445566'], sea, mulberry32(seed));
   assert.ok(/[A-Z]/.test(n[0]) && n.length <= 24, `"${n}" is capitalized and fits the name box`);
   assert.ok(/reef|cove|briny|drift|hushed/i.test(n), `"${n}" has a sea word or the mood in it`);
   used.add(n);
 }
 assert.ok(used.size > 5, 'different seeds give different names');
-assert.equal(name(['#223344'], sea, mulberry32(3)), name(['#223344'], sea, mulberry32(3)), 'the same seed gives the same name');
+assert.equal(name(['#223344', '#334455', '#445566'], sea, mulberry32(3)), name(['#223344', '#334455', '#445566'], sea, mulberry32(3)), 'the same seed gives the same name');
 assert.ok(/sprig|pip|fey|unfurl|hushed/i.test(name(['#223344'], ['Plain Gray'], mulberry32(1))), 'chips that point at no theme fall back to wonder');
-assert.ok(/cinder|spark|smoldering|kindle|fierce|hushed/i.test(name(['#223344'], ['Ember Glow', 'Flame', 'Tide'], mulberry32(2))), 'the theme most chips point at wins');
+assert.ok(/cinder|spark|smoldering|kindle|fierce|hushed/i.test(name(['#223344', '#334455', '#445566'], ['Ember Glow', 'Flame', 'Tide'], mulberry32(2))), 'the theme most chips point at wins');
+
+// A word counts for its theme only as far as the chip it is in has the color the word usually has: "Chocolate Mint" is a
+// green, so its chocolate does not make the palette a tea palette.
+{
+  const hued = {
+    themes: {
+      tea: { k: 'chocolate,cocoa', n: 'kettle,scone', a: 'cozy', v: 'brew' },
+      forest: { k: 'mint,leaf', n: 'fern,grove', a: 'mossy', v: 'sway' },
+      wonder: { k: 'gloaming', n: 'sprig,pip', a: 'fey', v: 'unfurl' },
+    },
+    moods: words.moods,
+    colors: { chocolate: '4B2E1E', cocoa: '5A3A28', mint: '3FA35B', leaf: '4C8C3A' },
+  };
+  const greens = ['#2E5A2B', '#4C8C3A'], browns = ['#4B2E1E', '#6A4430'];
+  const greenName = createPalNamer(hued), brown = createPalNamer(hued);
+  for (let seed = 1; seed < 30; seed++) {
+    const n = greenName(greens, ['Chocolate Mint', 'Cocoa Leaf'], mulberry32(seed));
+    assert.ok(!/kettle|scone|cozy|brew/i.test(n), `"${n}" is no tea name for a palette of greens`);
+    const b = brown(browns, ['Chocolate Mint', 'Cocoa Leaf'], mulberry32(seed));
+    assert.ok(!/fern|grove|mossy|sway/i.test(b), `"${b}" is no forest name for a palette of browns`);
+  }
+}
 
 console.log('ok 25-palname');
