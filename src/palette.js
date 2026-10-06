@@ -30,7 +30,7 @@ export function buildPalette(pixels, random = Math.random, chips = 7) {
   const { picks, roles, mode } = choose(pool, chips, random);
   let clusters = picks;
   if (mode !== 'exact') {
-    const nudged = harmonize(clusters.map((c, i) => ({ hex: c.hex, role: roles[i] })));
+    const nudged = harmonize(clusters.map((c, i) => ({ hex: c.hex, role: roles[i] })), mode);
     const strong = intensify(nudged.map((hex, i) => ({ hex, role: roles[i] })));
     const tuned = calmClash(strong.map((hex, i) => ({ hex, role: roles[i] })));
     clusters = clusters.map((c, i) => ({ ...c, hex: tuned[i] }));

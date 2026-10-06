@@ -1,8 +1,8 @@
 // harmonize: a little nudging so a palette's chips flow together. The chips the palette is built around stay
 // exactly as they are; the rest lean toward the palette's own hue, never away, never far, and never into a twin.
 import assert from 'node:assert/strict';
-import { hexToRgb } from '../src/color.js';
-import { deltaE, rgbToOklab, toOklch } from '../src/oklab.js';
+import { hexToRgb, rgbToHex } from '../src/color.js';
+import { deltaE, oklchToRgb, rgbToOklab, toOklch } from '../src/oklab.js';
 import { harmonize } from '../src/harmony.js';
 
 const lab = (h) => rgbToOklab(hexToRgb(h));
@@ -54,6 +54,29 @@ const HERO = '#D00806', BROWN = '#A66A3C', BLUE = '#2060C0', GRAY = '#808080';
   const chips = [chip(HERO, 'hero'), chip(BROWN), chip(GRAY)];
   assert.deepEqual(harmonize(chips), harmonize(chips), 'the same palette is nudged the same way');
   assert.deepEqual(chips, [chip(HERO, 'hero'), chip(BROWN), chip(GRAY)], 'and what was passed in is not changed');
+}
+
+// Scheme geometry: with the scheme named, a free chip near one of its target hues (the hero's, and the ones its shape
+// puts around it) is drawn toward it by half the distance, never more than 15 degrees. The hero stays exact, and
+// a chip far from every target is left to the plain lean.
+{
+  const col = (h, C = 0.12, L = 0.6) => rgbToHex(oklchToRgb({ L, C, h }));
+  const heroHue = 30, HERO_C = col(heroHue, 0.2, 0.55);
+  const moved = (mode, h) => lch(harmonize([chip(HERO_C, 'hero'), chip(col(h))], mode)[1]).h;
+  const near = (a, b, tol = 2) => assert.ok(gap(a, b) <= tol, `${a.toFixed(1)} is not ${b} (within ${tol})`);
+
+  near(moved('complementary', 190), 200, 2.5); // 20 from the opposite (210): half of it
+  near(moved('triadic', 140), 145, 2.5); // 10 from 150
+  near(moved('triadic', 255), 262.5, 2.5); // 15 from 270
+  near(moved('analogous', 50), 55, 2.5); // targets 0, 30 and 60: 10 from 60
+  near(moved('tonal', 52), 41, 2.5); // 22 from the hero
+  near(moved('square', 100), 110, 2.5); // targets 30, 120, 210, 300: 20 from 120
+  near(moved('complementary', 238), 224, 2.5); // 28 from 210: half of it, which is at most 15 whatever is in reach
+  const out = harmonize([chip(HERO_C, 'hero'), chip(col(190)), chip(col(100)), chip(col(260), 'accent')], 'complementary');
+  assert.equal(out[0], HERO_C, 'the hero stays exact');
+  assert.equal(out[3], col(260), 'and so does the accent');
+  assert.ok(gap(lch(out[2]).h, 100) <= 10.5, 'a chip with no target in reach only takes the plain lean');
+  assert.ok(gap(lch(out[1]).h, 190) <= 15.5, 'no chip is turned more than 15 degrees');
 }
 
 console.log('ok 09-harmony');
