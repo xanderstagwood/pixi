@@ -174,6 +174,7 @@ async function analyze(file, last) {
   try {
     carousel.focus(Infinity, true);
     setStatus('EXPANDING');
+    lizardAgain(); // behind the analysis screen, the photo button gets its lizard back
     const bloxels = await until(stage.open(work, cardRect(), cardCells, clusters.map((c, i) => ({ hex: candidates[i][keep[i]], x: c.x, y: c.y }))));
 
     work.width = work.height = 0; // the source pixels are spent: the bloxel grid holds all that is kept
@@ -330,7 +331,7 @@ const showCount = () => {
 const batch = createQueue(async (file, left) => {
   showCount();
   try { await analyze(file, left === 0); } finally { batchDone++; showCount(); }
-}, { pause: () => sleep(500), onIdle: () => { batchTotal = batchDone = 0; showCount(); } });
+}, { pause: () => sleep(500), onIdle: () => { batchTotal = batchDone = 0; showCount(); lizardAgain(); } });
 // Cancel drops the whole batch, skip only the image in progress; neither leaves a card. Once the card
 // is being made (`locked`) there is nothing to cancel, and the buttons are hidden by CSS.
 const skip = () => { if (!session?.locked) session?.abort.abort(); };
@@ -388,7 +389,7 @@ async function sendPicks() {
   const got = files.filter(Boolean);
   if (got.length < categories.length) say('no-photo');
   cooking();
-  if (got.length) addImages(got);
+  if (got.length) addImages(got); else lizardAgain();
 }
 function cancelPicks() {
   clearTimeout(settle);
@@ -396,6 +397,7 @@ function cancelPicks() {
   waiting = 0;
   epoch++;
   cooking();
+  lizardAgain();
 }
 
 const photoButton = carousel.add.querySelector('.add-photo'), photoIcon = photoButton.querySelector('.icon');
@@ -408,7 +410,7 @@ const fade = (from, to, ms) => {
   return unlessAway(a.finished.catch(() => {}));
 };
 
-let swaps = 0, choice = 0;
+let swaps = 0;
 /** The icon fades out, turns into `name` and fades in; a newer swap cuts this one short. Resolves true if it was not cut short. */
 async function swapIcon(name, force = false) {
   const run = ++swaps;
@@ -423,14 +425,18 @@ async function swapIcon(name, force = false) {
   fades.clear();
   return true;
 }
-/** A choice is made: the pick is queued at once, the icon shows the set's own for a moment, then the lizard comes back. */
+/** A choice is made: the pick is queued at once and the icon turns into the set's own, and stays so until the work has begun. */
 async function choose(category, shown = false) {
   if (!pickPhoto(category)) return;
-  const mine = ++choice;
-  if (!shown && !(await swapIcon(category, true))) return;
-  if (category === 'lizard') return;
-  await sleep(450);
-  if (mine === choice) await swapIcon('lizard');
+  if (!shown) await swapIcon(category, true);
+}
+/** The lizard comes back, at once and unseen, when the analysis screen is up or the picks have come to nothing; not while more are waiting. */
+function lizardAgain() {
+  if (waiting || queued.length) return;
+  swaps++; // cuts short any swap in flight
+  fades.forEach((a) => a.cancel());
+  fades.clear();
+  showIcon('lizard');
 }
 
 photoButton.addEventListener('click', (e) => choose(categoryFor({ button: 0, alt: e.altKey })));
