@@ -271,3 +271,4 @@ import './22-gesture.mjs';
 import './23-colorname.mjs';
 import './24-words.mjs';
 import './25-palname.mjs';
+import './26-chipdrag.mjs';

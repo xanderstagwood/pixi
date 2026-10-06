@@ -8,7 +8,7 @@ import { loadColorNames, nameColors } from './colorname.js';
 import { loadPalNames, namePalette } from './palname.js';
 import { createPicker, loadPhotos } from './photos.js';
 import { createQueue } from './queue.js';
-import { CHIPS, cardCells, cardPng, chipAt, layout, paintTwinkle, renderCard, tagAt, twinkleCells } from './card.js';
+import { CHIPS, cardCells, cardPng, chipAt, layout, paintTwinkle, renderCard, renderChip, tagAt, twinkleCells } from './card.js';
 import { clickIntent, createCarousel } from './carousel.js';
 import { holdButton } from './hold.js';
 import { center, unit, watchPixelSnap } from './pixel.js';
@@ -19,6 +19,7 @@ import { createTag } from './tag.js';
 import { createTwinkle } from './twinkle.js';
 import { triage } from './triage.js';
 import { createVoice } from './voice.js';
+import { attachChipDrag, moveItem } from './chipdrag.js';
 import { attachReorder } from './reorder.js';
 import { runScanners } from './scanners.js';
 import { attachSwipe } from './swipe.js';
@@ -557,7 +558,28 @@ const applyAxis = () => document.body.classList.toggle('vertical', vertical());
 narrow.addEventListener('change', applyAxis);
 applyAxis();
 
-attachReorder(track, { canDrag: idle, vertical, onReorder: (from, to) => { carousel.move(from, to); persist(); } });
+// A chip held with the pointer is dragged along its card's stack; while it is, the card itself is not picked up or swiped.
+let chipHeld = false;
+attachChipDrag(track, {
+  canDrag: idle,
+  css: () => unit().css,
+  hit: (card, x, y) => (tagAt(card.palette, x, y) ? -1 : chipAt(x, y, card.palette.colors.length)),
+  rows: (card) => ({ ...layout().chips, x: layout().chips.x, top: layout().chips.y, count: card.palette.colors.length }),
+  ghost: (card, i) => {
+    const el = document.createElement('canvas');
+    el.className = 'chip-ghost';
+    renderChip(el, card.palette.colors[i], nameColors(card.palette.colors)[i], unit().n);
+    return el;
+  },
+  draw: (card, from, offsets) => renderCard(card.querySelector('canvas'), card.palette, unit().n, { ui: true, drag: { index: from, offsets } }),
+  drop: (card, from, to) => {
+    const p = card.palette;
+    if (from !== to) { p.colors = moveItem(p.colors, from, to); persist(); }
+    paintCard(card);
+  },
+  hold: (on) => { chipHeld = on; },
+});
+attachReorder(track, { canDrag: () => idle() && !chipHeld, vertical, onReorder: (from, to) => { carousel.move(from, to); persist(); } });
 attachSwipe(track, { canSwipe: idle, vertical, index: () => carousel.index, onSettle: go, onDismiss: dismiss });
 
 // The wheel steps through the cards: a notch is a card, and a trackpad's small deltas add up to one.
@@ -594,7 +616,9 @@ track.addEventListener('click', (e) => {
 // The credit tags are links: the pointer says so over them.
 track.addEventListener('pointermove', (e) => {
   const canvas = e.target.closest?.('.card.focus canvas');
-  if (canvas) canvas.style.cursor = tagAt(canvas.closest('.card').palette, e.offsetX / unit().css, e.offsetY / unit().css) ? 'pointer' : '';
+  if (!canvas) return;
+  const { palette } = canvas.closest('.card'), x = e.offsetX / unit().css, y = e.offsetY / unit().css;
+  canvas.style.cursor = tagAt(palette, x, y) ? 'pointer' : chipAt(x, y, palette.colors.length) >= 0 ? 'grab' : '';
 });
 
 addEventListener('keydown', (e) => {

@@ -125,6 +125,8 @@ body.vertical #track {
 .card.dragging { opacity: 0.4; }
 /* Reorder ghost: follows the pointer, offset set inline by src/reorder.js. */
 .card.drag-ghost { position: fixed; margin: 0; z-index: 50; opacity: 0.9; pointer-events: none; transition: none; }
+/* A chip being dragged: a picture of it follows the pointer, as the card's ghost does. */
+.chip-ghost { z-index: 50; opacity: 0.9; box-shadow: 0 calc(6 * var(--px)) calc(14 * var(--px)) rgba(0, 0, 0, 0.4); }
 body.grabbing, body.grabbing * { cursor: grabbing !important; }
 
 /* The blank card is two buttons with a gap: a picture of your own above, a random photo below. */

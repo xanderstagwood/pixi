@@ -74,15 +74,48 @@ export function creditTags(palette) {
 /** Where a card's tags link to at a point on it (font pixels from its top left), or '' if the point is on none. */
 export const tagAt = (palette, x, y) => creditTags(palette).find((t) => x >= t.x && x < t.x + t.w && y >= t.y && y < t.y + t.h)?.href ?? '';
 
+const DRAG_DIM = 0.4; // how faint the chip being dragged is where it was, as in Sprite's tiles
+
+/** A chip at (x, y) device pixels: its color with a light line along the top and a shadow line along the bottom, lifted off what is behind by a soft shadow. */
+function drawChip(g, s, x, y, hex, text, shadow = true) {
+  const w = CHIP.w * s, h = CHIP.h * s;
+  g.save();
+  if (shadow) {
+    g.shadowColor = 'rgba(0, 0, 0, 0.4)';
+    g.shadowBlur = 6 * s;
+    g.shadowOffsetY = 2 * s;
+  }
+  g.fillStyle = hex;
+  g.fillRect(x, y, w, h);
+  g.restore();
+  g.fillStyle = brighter(hex, CHIP_HIT);
+  g.fillRect(x, y, w, s);
+  g.fillStyle = mix(hex, '#000000', 0.4);
+  g.fillRect(x, y + h - s, w, s);
+  g.font = `${16 * s}px "Stagwood Sprite 64", monospace`;
+  g.textBaseline = 'alphabetic';
+  g.fillStyle = inkFor(hex);
+  g.fillText(text, x + textOffset(text, CHIP.w, s), y + LABEL_BASE * s);
+}
+
+/** Draws one chip on a canvas of its own, resized to it at `s` device px per font pixel: what follows the pointer as a chip is dragged. */
+export function renderChip(canvas, hex, text, s) {
+  canvas.width = CHIP.w * s;
+  canvas.height = CHIP.h * s;
+  drawChip(canvas.getContext('2d'), s, 0, 0, hex, text, false);
+}
+
 /**
  * @param {HTMLCanvasElement} canvas resized to the card at `s` device px per font pixel
  * @param {{grid: {cols: number, rows: number, rgb: Uint8ClampedArray, cx: number, cy: number}, colors: string[], name: string, copied?: number}} palette colors in stack order, bottom row first
  * @param {number} s whole device pixels per font pixel, so every edge and glyph stays crisp
- * @param {{ui?: boolean, dim?: boolean}} opts ui adds on-screen-only hints (the name placeholder); exports leave
- *        them out. dim veils the blocks and chips (a card that is not in the center) but never the text
+ * @param {{ui?: boolean, dim?: boolean, drag?: {index: number, offsets: number[]}}} opts ui adds on-screen-only hints (the
+ *        name placeholder); exports leave them out. dim veils the blocks and chips (a card that is not in the center) but
+ *        never the text. drag is a chip being dragged: it is drawn dimmed in its row, and each chip is `offsets[i]` rows
+ *        from its own, as they slide to make room
  * @returns {string} the ink the name was drawn in, for the caret that types it
  */
-export function renderCard(canvas, palette, s, { ui = false, dim = false } = {}) {
+export function renderCard(canvas, palette, s, { ui = false, dim = false, drag = null } = {}) {
   const L = layout();
   canvas.width = L.w * s;
   canvas.height = L.h * s;
@@ -107,28 +140,13 @@ export function renderCard(canvas, palette, s, { ui = false, dim = false } = {})
   }
 
   g.textBaseline = 'alphabetic';
-  // A chip is its color with a light line along the top and a shadow line along the bottom,
-  // lifted off the blocks by a soft shadow.
-  const chip = (row, hex, text) => {
-    const x = L.chips.x * s, y = (L.chips.y + row * CHIP.pitch) * s, w = CHIP.w * s, h = CHIP.h * s;
-    g.save();
-    g.shadowColor = 'rgba(0, 0, 0, 0.4)';
-    g.shadowBlur = 6 * s;
-    g.shadowOffsetY = 2 * s;
-    g.fillStyle = hex;
-    g.fillRect(x, y, w, h);
-    g.restore();
-    g.fillStyle = brighter(hex, CHIP_HIT);
-    g.fillRect(x, y, w, s);
-    g.fillStyle = mix(hex, '#000000', 0.4);
-    g.fillRect(x, y + h - s, w, s);
-    g.font = `${16 * s}px "Stagwood Sprite 64", monospace`;
-    g.fillStyle = inkFor(hex);
-    g.fillText(text, x + textOffset(text, CHIP.w, s), y + LABEL_BASE * s);
-  };
-
   const n = palette.colors.length, names = nameColors(palette.colors); // a click still copies the hex
-  palette.colors.forEach((hex, i) => chip(n - 1 - i, hex, palette.copied === i ? `COPIED ${hex}` : names[i]));
+  palette.colors.forEach((hex, i) => {
+    const y = L.chips.y + (n - 1 - i + (drag?.offsets[i] ?? 0)) * CHIP.pitch;
+    g.globalAlpha = drag?.index === i ? DRAG_DIM : 1; // the chip being dragged stays where it was, dimmed
+    drawChip(g, s, L.chips.x * s, y * s, hex, palette.copied === i ? `COPIED ${hex}` : names[i]);
+    g.globalAlpha = 1;
+  });
 
   if (dim) { // a veil of the ground color, laid before the name so the name is the same color on every card
     g.fillStyle = 'rgba(0, 0, 0, 0.5)';
