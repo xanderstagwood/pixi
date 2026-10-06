@@ -20,16 +20,16 @@ export function extractColors({ data, width, height }, k = 7, iterations = 12, r
   const at = (p) => [data[p], data[p + 1], data[p + 2]];
   const dist = (a, b) => (a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2 + (a[2] - b[2]) ** 2;
 
-  // Seed: a random pixel, then repeatedly the pixel farthest from every chosen centroid.
+  // Seed: a random pixel, then repeatedly the pixel farthest from every chosen centroid. Each pixel's
+  // distance to its nearest centroid so far is kept and only checked against the newest one.
   const cents = [at(px[Math.floor(random() * px.length)])];
+  const nearest = px.map((p) => dist(at(p), cents[0]));
   while (cents.length < k) {
-    let best = px[0], bestD = -1;
-    for (const p of px) {
-      const c = at(p);
-      const d = Math.min(...cents.map((m) => dist(c, m)));
-      if (d > bestD) { bestD = d; best = p; }
-    }
-    cents.push(at(best));
+    let best = 0;
+    nearest.forEach((d, i) => { if (d > nearest[best]) best = i; });
+    cents.push(at(px[best]));
+    const newest = cents[cents.length - 1];
+    px.forEach((p, i) => { nearest[i] = Math.min(nearest[i], dist(at(p), newest)); });
   }
 
   const owner = new Int16Array(px.length);
