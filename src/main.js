@@ -365,11 +365,12 @@ async function photoOf(category) {
 // up more; the counter tag is up from the first pick. `waiting` counts the picks whose photo is not in the queue yet.
 const PAUSE = 1500;
 let queued = [], waiting = 0, settle = null, epoch = 0;
+const cooking = () => { photoButton.classList.toggle('cooking', waiting > 0); showCount(); }; // the icon pulses while photos are on their way
 function pickPhoto(category) {
   if (batchTotal + waiting >= MAX_BATCH) { say('too-many'); return false; }
   queued.push(category);
   waiting++;
-  showCount();
+  cooking();
   clearTimeout(settle);
   settle = setTimeout(sendPicks, PAUSE);
   return true;
@@ -381,14 +382,15 @@ async function sendPicks() {
   waiting -= categories.length;
   const got = files.filter(Boolean);
   if (got.length < categories.length) say('no-photo');
-  if (got.length) addImages(got); else showCount();
+  cooking();
+  if (got.length) addImages(got);
 }
 function cancelPicks() {
   clearTimeout(settle);
   queued = [];
   waiting = 0;
   epoch++;
-  showCount();
+  cooking();
 }
 
 const photoButton = carousel.add.querySelector('.add-photo'), photoIcon = photoButton.querySelector('.icon');

@@ -133,6 +133,8 @@ body.grabbing, body.grabbing * { cursor: grabbing !important; }
 .add-btn .icon { --icon-scale: 4; }
 .add-btn:hover, .add-btn:focus-visible { background: var(--gray-11); --icon-color: var(--gray-1); }
 .add-btn:focus-visible { outline: calc(2 * var(--px)) solid var(--accent); outline-offset: calc(-2 * var(--px)); }
+/* While the photos picked are on their way, the lizard breathes. */
+.add-photo.cooking .icon { --icon-color: var(--gray-1); animation: nudge-pulse 1.4s ease-in-out infinite; }
 body.dragging .add-new { outline: calc(2 * var(--px)) solid var(--accent); outline-offset: calc(-2 * var(--px)); }
 
 .card canvas { display: block; width: var(--card-w); height: var(--card-h); image-rendering: pixelated; }
@@ -290,7 +292,7 @@ body[data-status="SHRINKING"] #counter .tag-btn { display: none; } /* the card i
 /* Until it has been clicked once, the heart breathes between its dim color and the accent, as Sprite's does. */
 @keyframes nudge-pulse { 0%, 100% { opacity: 0.35; } 50% { opacity: 1; } }
 #version .tag-btn--heart.nudge .icon { --icon-color: var(--accent); animation: nudge-pulse 1.4s ease-in-out infinite; }
-@media (prefers-reduced-motion: reduce) { #version .tag-btn--heart.nudge .icon, #voice.pulsing .icon, #voice .tag-dots i { animation: none; } }
+@media (prefers-reduced-motion: reduce) { #version .tag-btn--heart.nudge .icon, #voice.pulsing .icon, #voice .tag-dots i, .add-photo.cooking .icon { animation: none; } }
 :is(#version, #counter) .tag-btn:focus-visible { outline: calc(2 * var(--px)) solid var(--accent); outline-offset: calc(-2 * var(--px)); }
 
 #scanners { position: fixed; inset: 0; z-index: 20; pointer-events: none; }
