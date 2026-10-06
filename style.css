@@ -209,6 +209,31 @@ body[data-status='EXPANDING'], body[data-status='ANALYZING'] { background: var(-
 #counter::after { content: ''; position: absolute; inset: 0; box-shadow: inset 0 var(--px) 0 var(--gray-12-hit); pointer-events: none; }
 #counter[hidden] { display: none; }
 
+/* Pixi's voice, after Wisp's action tag: a one-block panel in the top right corner, its light hairlines down the
+   left and along the bottom, facing the page. The icon pulses while Pixi is at work; the text fades on a change
+   and the tag eases to its new width. */
+#voice {
+  position: fixed;
+  right: 0;
+  top: 0;
+  z-index: 40;
+  height: calc(24 * var(--px));
+  display: flex;
+  align-items: center;
+  background: var(--gray-12);
+  color: var(--gray-4);
+  white-space: nowrap;
+  border-style: solid;
+  border-width: 0 0 var(--px) var(--px);
+  border-color: transparent transparent var(--gray-12-hit) var(--gray-12-hit);
+  pointer-events: none;
+}
+#voice[hidden] { display: none; }
+#voice.sliding { overflow: hidden; transition: width 150ms ease; }
+#voice .icon { --icon-px: calc(2 * var(--px)); --icon-color: var(--gray-4); margin-left: calc(6 * var(--px)); flex: none; }
+#voice.pulsing .icon { --icon-color: var(--gray-1); animation: nudge-pulse 1.4s ease-in-out infinite; }
+#voice .tag-label { padding: 0 calc(8 * var(--px)) 0 calc(6 * var(--px)); transition: opacity 120ms ease; }
+
 /* The version tag, the counter's mirror in the bottom-right corner, after Sprite's help tag: the icon
    supplies its own block of clearance, the label sits flush against it. */
 #version {
@@ -242,7 +267,7 @@ body[data-status='EXPANDING'], body[data-status='ANALYZING'] { background: var(-
 /* Until it has been clicked once, the heart breathes between its dim color and the accent, as Sprite's does. */
 @keyframes nudge-pulse { 0%, 100% { opacity: 0.35; } 50% { opacity: 1; } }
 #version .tag-btn--heart.nudge .icon { --icon-color: var(--accent); animation: nudge-pulse 1.4s ease-in-out infinite; }
-@media (prefers-reduced-motion: reduce) { #version .tag-btn--heart.nudge .icon { animation: none; } }
+@media (prefers-reduced-motion: reduce) { #version .tag-btn--heart.nudge .icon, #voice.pulsing .icon { animation: none; } }
 #version .tag-btn:focus-visible { outline: calc(2 * var(--px)) solid var(--accent); outline-offset: calc(-2 * var(--px)); }
 
 #scanners { position: fixed; inset: 0; z-index: 20; pointer-events: none; }

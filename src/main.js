@@ -10,7 +10,10 @@ import { center, unit, watchPixelSnap } from './pixel.js';
 import { createStage } from './stage.js';
 import { createStack } from './stack.js';
 import { createStore } from './store.js';
+import { createTag } from './tag.js';
 import { createTwinkle } from './twinkle.js';
+import { triage } from './triage.js';
+import { LINES, createVoice } from './voice.js';
 import { attachReorder } from './reorder.js';
 import { runScanners } from './scanners.js';
 import { attachSwipe } from './swipe.js';
@@ -32,7 +35,23 @@ const MAX_BYTES = 25 * 1024 * 1024; // per file, so at most 225MB in a batch
 const MAX_PIXELS = 64e6; // 8000 x 8000
 
 const app = { status: 'IDLE' };
-const setStatus = (s) => { app.status = s; document.body.dataset.status = s; };
+const voice = createVoice();
+let phase = ''; // what Pixi says while a phase runs, chosen once per phase so it does not flicker
+let remark = ''; // what it says about a drop it turned away, for a few seconds
+let hush = 0;
+const tag = createTag($('voice'), () => remark || phase, () => phase !== '');
+const setStatus = (s) => {
+  app.status = s;
+  document.body.dataset.status = s;
+  phase = LINES[s] ? voice.line(s) : '';
+  tag.refresh();
+};
+const say = (event) => {
+  remark = voice.line(event);
+  tag.refresh();
+  clearTimeout(hush);
+  hush = setTimeout(() => { remark = ''; tag.refresh(); }, 3500);
+};
 const idle = () => app.status === 'IDLE' || app.status === 'CAROUSEL';
 
 // The analysis in flight, if any: what a change of viewport has to lay out again.
@@ -57,7 +76,7 @@ async function load(file) {
   try {
     // Size is known once the header is read; check it before paying to decode a huge picture.
     await new Promise((done, fail) => { img.onload = done; img.onerror = fail; });
-    if (img.naturalWidth * img.naturalHeight > MAX_PIXELS) throw new Error('image too large');
+    if (img.naturalWidth * img.naturalHeight > MAX_PIXELS) throw Object.assign(new Error('image too large'), { reason: 'too-big' });
     await img.decode();
   } finally { URL.revokeObjectURL(url); }
   const s = Math.min(1, MAX_SIDE / Math.max(img.naturalWidth, img.naturalHeight));
@@ -105,10 +124,10 @@ async function analyze(file, last) {
   if (!idle()) return;
   await fontReady;
   let work;
-  try { work = await load(file); } catch { return; }
+  try { work = await load(file); } catch (e) { say(e.reason ?? 'unreadable'); return; }
   const pixels = sample(work);
   const plan = buildPalette(pixels, Math.random, CHIPS);
-  if (!plan) return;
+  if (!plan) { say('empty'); return; }
   const { clusters, candidates, keep, slotOf } = plan;
 
   session = { scan: null };
@@ -257,7 +276,8 @@ const batch = createQueue(async (file, left) => {
   try { await analyze(file, left === 0); } finally { batchDone++; showCount(); }
 }, { pause: () => sleep(500), onIdle: () => { batchTotal = batchDone = 0; showCount(); } });
 const addImages = (files) => {
-  const take = files.filter((f) => f.type.startsWith('image/') && f.size <= MAX_BYTES).slice(0, Math.max(0, MAX_BATCH - batchTotal));
+  const { take, refused } = triage(files, { room: Math.max(0, MAX_BATCH - batchTotal), maxBytes: MAX_BYTES });
+  if (refused.length) say(refused[0]);
   if (!take.length) return;
   batchTotal += take.length;
   showCount();
