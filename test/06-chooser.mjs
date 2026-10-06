@@ -5,7 +5,7 @@ import { hexToRgb, rgbToHex } from '../src/color.js';
 import { extractColors } from '../src/extract.js';
 import { deltaE, oklchToRgb, rgbToOklab, toOklch } from '../src/oklab.js';
 import { buildPalette } from '../src/palette.js';
-import { PLENTIFUL, choose, richness } from '../src/chooser.js';
+import { choose } from '../src/chooser.js';
 import { clear, flat, mulberry32, patches } from './img.mjs';
 
 const lab = (hex) => rgbToOklab(hexToRgb(hex));
@@ -125,20 +125,16 @@ assert.ok(!choose(GRAYS, 7, mulberry32(1)).roles.includes('hero'), 'a gray pictu
   assert.ok(roles.includes('dark') && roles.includes('light'), 'both are marked as anchors');
 }
 
-// Plentiful picks a family, limited spreads out, and the line between them is pinned. What is counted is hue
-// families, not shades: twelve reds are one color to look at, and a rainbow is twelve.
+// The scheme the picture can support names the palette; the recipes themselves are pinned in 11-compose.
 const families = (n) => Array.from({ length: 12 }, (_, i) => entry(hex(0.35 + 0.12 * Math.floor(i / n), 0.12, (360 / n) * (i % n)), 1 / 12));
-assert.equal(richness(families(PLENTIFUL)), PLENTIFUL, 'the fixture holds exactly the threshold of hue families');
-assert.equal(choose(families(PLENTIFUL), 7, mulberry32(1)).mode, 'cohesive', 'at the threshold it picks a family');
-assert.equal(choose(families(PLENTIFUL - 1), 7, mulberry32(1)).mode, 'varied', 'one below it spreads out');
+assert.equal(choose(families(4), 7, mulberry32(1)).mode, 'square', 'four hues evenly spread are a square');
+assert.equal(choose(families(3), 7, mulberry32(1)).mode, 'triadic', 'three are a triad');
 {
   const shades = [...Array.from({ length: 11 }, (_, i) => entry(hex(0.25 + i * 0.05, 0.16, 30 + (i % 3) * 4), 0.05)), entry('#100E07', 0.4)];
-  assert.ok(richness(shades) <= 2, 'eleven shades of one red and a black are two colors, not twelve');
-  assert.equal(choose(shades, 7, mulberry32(1)).mode, 'varied', 'so they are spread out, not gathered');
+  assert.equal(choose(shades, 7, mulberry32(1)).mode, 'tonal', 'eleven shades of one red and a black are one hue, tonal');
 }
 {
   const crowd = [0, 90, 180, 270].flatMap((h) => [0.45, 0.48, 0.51].map((L) => entry(hex(L, 0.12, h), 1 / 12)));
-  assert.equal(choose(crowd, 7, mulberry32(1)).mode, 'cohesive', 'four families gather');
   for (const rng of seeds(20)) {
     assert.ok(minGap(hexes(choose(crowd, 7, rng).picks)) >= 0.055, 'even a family keeps its chips apart, near-twins are not both chips');
   }
@@ -146,10 +142,9 @@ assert.equal(choose(families(PLENTIFUL - 1), 7, mulberry32(1)).mode, 'varied', '
 {
   const blues = Array.from({ length: 12 }, (_, i) => entry(hex(0.3 + i * 0.045, 0.08, 255 + (i % 3) * 3), 1 / 12));
   const { picks, mode } = choose(blues, 7, mulberry32(1));
-  assert.equal(mode, 'varied', 'a picture of blues is limited');
+  assert.equal(mode, 'tonal', 'a picture of blues is tonal');
   assert.ok(minGap(hexes(picks)) >= 0.03, 'its chips are all tellable apart');
 }
-
 // The road at night: black, a little olive, and eight shades of red and orange. Spread, not a crowd of reds.
 const ROAD = [
   ['#010100', 0.83], ['#100E07', 0.114], ['#1E2113', 0.034], ['#FC0201', 0.006], ['#580706', 0.0037], ['#940E08', 0.0033],
@@ -210,7 +205,7 @@ assert.ok(new Set(seeds(20).map((r) => hexes(choose(RAINBOW, 7, r).picks).sort()
   assert.ok(Math.abs(pool.reduce((s, c) => s + c.share, 0) - 1) < 1e-9, 'the pool\'s shares add up to the whole picture');
 }
 {
-  // The road as a picture: fitting a shade pattern may swap two chips for colors left over, but not for more of the same red.
+  // The road as a picture: fitting a shade pattern may swap two chips for colors left over, but not for more of the same red than the picture forces.
   const road = patches([
     { hex: '#010100', share: 0.5 }, { hex: '#100E07', share: 0.12 }, { hex: '#1E2113', share: 0.06 }, { hex: '#5F6C60', share: 0.02 },
     { hex: '#FC0201', share: 0.05 }, { hex: '#D00806', share: 0.05 }, { hex: '#940E08', share: 0.04 }, { hex: '#580706', share: 0.04 },
@@ -219,7 +214,8 @@ assert.ok(new Set(seeds(20).map((r) => hexes(choose(RAINBOW, 7, r).picks).sort()
   for (const rng of seeds(40)) {
     const { colors } = buildPalette(road, rng);
     const reds = colors.filter((c) => lch(c).C > 0.1 && hueGap(lch(c).h, 32) < 15).length;
-    assert.ok(reds <= 3, 'fitting a pattern never crowds the road palette with a fourth red');
+    // Once pure black and the near-twin darks are out, this picture leaves four colors that are not red, so four reds are the most it can need.
+    assert.ok(reds <= 4, 'fitting a pattern never crowds the road palette with a fifth red');
   }
 }
 for (const h of ['#FFFFFF', '#000000', '#CC2222']) {

@@ -17,8 +17,8 @@ export const SCHEMES = ['tonal', 'neutral-pop', 'analogous', 'dichromatic', 'com
 
 const gap = (a, b) => Math.abs(((a - b + 540) % 360) - 180);
 
-/** An entry with its OKLab lightness, chroma and hue worked out. */
-export const seen = (e) => ({ ...e, ...toOklch(rgbToOklab(hexToRgb(e.hex))) });
+/** An entry with its OKLab position and its lightness, chroma and hue worked out. */
+export const seen = (e) => { const lab = rgbToOklab(hexToRgb(e.hex)); return { ...e, lab, ...toOklch(lab) }; };
 
 /** Groups chromatic colors into hue families: runs of hues with no gap of FAMILY_GAP or more, joined across the wrap at 0. */
 function familiesOf(colors) {

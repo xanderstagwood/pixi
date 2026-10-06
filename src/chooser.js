@@ -1,5 +1,5 @@
-import { hexToRgb } from './color.js';
-import { deltaE, rgbToOklab, toOklch } from './oklab.js';
+import { deltaE } from './oklab.js';
+import { detect, seen } from './scheme.js';
 
 // Which seven of a picture's twelve colors make the palette. The aim is contrast and colors that work together,
 // not a faithful copy. Wherever a person can check the answer by eye (one color, two colors, a handful) the
@@ -7,9 +7,8 @@ import { deltaE, rgbToOklab, toOklch } from './oklab.js';
 
 const JND = 0.02; // colors closer than this cannot be told apart, so they count as one
 const FAMILY_GAP = 25; // degrees of hue between one color family and the next: shades of one hue are one color to look at
-export const PLENTIFUL = 4; // this many color families in the picture: gather a family; fewer: spread out
 const MAX_IN_FAMILY = 3; // chips one color family may take while the picture offers anything else
-const MIN_APART = 0.06; // two chips closer than this are near-twins, so a second one is a wasted chip
+const MIN_APART = 0.08; // two chips closer than this are near-twins, so a second one is a wasted chip
 const PURE_BLACK = 0.09; // OKLab lightness below which a color is pure black (about #030303)
 const PURE_WHITE = 0.99; // and above which it is pure white (about #FCFCFC)
 const PURE_SHARE = 0.8; // pure black or white is a chip only when the picture is at least this much of it
@@ -21,22 +20,11 @@ const NARROW = 0.85; // share of the other colors' area that has to sit within A
 const NEUTRAL_AREA = 0.15; // a picture with no more color than this is a gray picture with a few colors in it
 const SIZE_FLOOR = { vivid: 0.001, mild: 0.003 }; // share of the picture below which a color is a speck
 const VIVID_PULL = 0.5; // how far a color's chroma counts in its favor when a family is gathered, so a palette is not all grays
-const WOBBLE = 3; // cohesion picks at random among this many best fits, so a rainbow does not always give the same family
+const RAMP = 1.5; // how much more a step in lightness counts than a step in hue when a group is spread into a ramp
+const NEIGHBOURHOOD = 4; // hue families a rainbow gives up: a stretch of the wheel
 
 const gap = (a, b) => Math.abs(((a - b + 540) % 360) - 180);
-const seen = (e) => { const lab = rgbToOklab(hexToRgb(e.hex)); return { ...e, lab, ...toOklch(lab) }; };
 const far = (a, b, lightness = 1) => Math.hypot(lightness * (a.lab.L - b.lab.L), a.lab.a - b.lab.a, a.lab.b - b.lab.b);
-
-/**
- * How rich a pool is in color: its hue families (a run of hues with no gap of FAMILY_GAP or more between them,
- * so twelve reds are one) and one more if it holds any neutral. A rainbow is many; a red picture on black is two.
- */
-export function richness(pool) {
-  const colors = pool.map(seen);
-  const hues = colors.filter((c) => c.C >= CHROMATIC).map((c) => c.h).sort((a, b) => a - b);
-  const gaps = hues.map((h, i) => (i ? h - hues[i - 1] : h + 360 - hues[hues.length - 1])).filter((g) => g >= FAMILY_GAP).length;
-  return (hues.length ? Math.max(1, gaps) : 0) + (colors.some((c) => c.C < CHROMATIC) ? 1 : 0);
-}
 
 const sameFamily = (a, b) => (a.C >= CHROMATIC) === (b.C >= CHROMATIC) && (a.C < CHROMATIC || gap(a.h, b.h) < FAMILY_GAP);
 const roomFor = (color, others) => others.filter((o) => sameFamily(color, o)).length < MAX_IN_FAMILY;
@@ -101,25 +89,59 @@ function accentOf(colors, total) {
   return area <= NEUTRAL_AREA ? [...vivid].sort((a, b) => b.C - a.C)[0] ?? null : null;
 }
 
+// What each scheme asks of seven chips, about 60/30/10: its color groups in order of weight, with how many chips
+// each gets. A group is a hue family (by size, biggest first) or the neutrals.
+const THREE = (f) => [[f[0], 3], [f[1], 2], [f[2], 1], ['neutral', 1]];
+const FOUR = (f) => [[f[0], 2], [f[1], 2], [f[2], 1], [f[3], 1], ['neutral', 1]];
+const PAIR = (f) => [[f[0], 4], [f[1], 2], ['neutral', 1]];
+const RECIPES = {
+  tonal: (f) => [[f[0], 5], ['neutral', 2]],
+  'neutral-pop': (f) => (f[1] ? [['neutral', 4], [f[0], 2], [f[1], 1]] : [['neutral', 4], [f[0], 3]]),
+  analogous: (f) => [[f[0], 3], [f[1], 2], [f[2] ?? 'neutral', 1], ['neutral', 1]],
+  dichromatic: PAIR,
+  complementary: PAIR,
+  'split-complementary': THREE,
+  triadic: THREE,
+  tetradic: FOUR,
+  square: FOUR,
+};
+
+/** A rainbow has more families than any scheme can use: a stretch of the wheel round a random one is taken. */
+function neighbourhood(families, random) {
+  const seed = families[Math.floor(random() * families.length)];
+  return [...families].sort((a, b) => gap(a.hue, seed.hue) - gap(b.hue, seed.hue)).slice(0, NEIGHBOURHOOD);
+}
+
 /**
  * Picks the palette's colors from a picture's pool. Pure black and white are left out unless the picture is
- * mostly that. A picture of `chips` colors or fewer is answered exactly. Otherwise the lightest and the darkest
- * color anchor the value range, the most vivid color (the hero) and an earned accent get slots, and the rest are a family (a picture with plenty of
- * colors) or spread as far apart as they can be (one with few).
+ * mostly that. A picture of `chips` colors or fewer is answered exactly. Otherwise the picture's scheme
+ * (scheme.js) says how many chips each color group gets, about 60/30/10; the lightest and darkest color anchor
+ * the value range, the most vivid color (the hero) and an earned accent have their places, and each group is
+ * filled as a ramp from dark to light. A group that cannot fill its share hands the rest on.
  * @param {{hex: string, x: number, y: number, share: number}[]} pool the picture's colors with the share of it each covers
  * @param {number} chips how many to pick
- * @param {() => number} random picks the neighbourhood of a family, so the same rainbow is not always the same palette
- * @returns {{picks: {hex: string, x: number, y: number}[], roles: string[], mode: 'exact' | 'cohesive' | 'varied', spare: object[]}}
- *   `roles` is parallel to `picks` ('accent', 'hero', 'dark', 'light' or ''), `spare` the colors not picked
+ * @param {() => number} random picks the neighbourhood of a rainbow, so the same rainbow is not always the same palette
+ * @returns {{picks: {hex: string, x: number, y: number}[], roles: string[], mode: string, spare: object[]}}
+ *   `mode` is 'exact' or the scheme's name; `roles` is parallel to `picks` ('accent', 'hero', 'dark', 'light' or ''),
+ *   `spare` the colors not picked
  */
 export function choose(pool, chips = 7, random = Math.random) {
   const reps = merged(pool);
   if (reps.length <= chips) return { picks: exactly(reps, chips), roles: Array(chips).fill(''), mode: 'exact', spare: [] };
 
-  const total = reps.reduce((s, r) => s + r.share, 0) || 1;
+  let total = reps.reduce((s, r) => s + r.share, 0) || 1;
   const pure = (c) => c.L < PURE_BLACK || c.L > PURE_WHITE;
   let colors = reps.filter((c) => !pure(c) || c.share / total >= PURE_SHARE);
   if (colors.length < chips) colors = reps;
+
+  const scheme = detect(reps); // the whole picture, black and white included: they are what it is made of, even where they cannot be chips
+  let families = scheme.families;
+  if (families.length > NEIGHBOURHOOD) {
+    families = neighbourhood(families, random);
+    const kept = new Set(families.flatMap((f) => f.members.map((m) => m.hex)));
+    const narrowed = colors.filter((c) => c.C < CHROMATIC || kept.has(c.hex));
+    if (narrowed.length >= chips) { colors = narrowed; total = colors.reduce((s, c) => s + c.share, 0) || 1; }
+  }
 
   const accent = accentOf(colors, total);
   const hero = colors.filter((c) => c !== accent && c.C >= ACCENT_CHROMA && c.share / total >= SIZE_FLOOR.mild && (!accent || far(c, accent) >= MIN_APART)).sort((a, b) => b.C - a.C)[0];
@@ -128,27 +150,46 @@ export function choose(pool, chips = 7, random = Math.random) {
   const picks = [], roles = [];
   for (const [color, role] of [[accent, 'accent'], [hero, 'hero'], [dark, 'dark'], [light, 'light']]) {
     if (!color) continue;
-    const at = picks.indexOf(color);
-    if (at < 0) { picks.push(color); roles.push(role); }
+    if (!picks.includes(color)) { picks.push(color); roles.push(role); }
   }
 
-  const mode = richness(colors) >= PLENTIFUL ? 'cohesive' : 'varied';
+  // Which group each color belongs to, and how many chips each group is still owed.
+  const group = new Map(colors.map((c) => [c.hex, c.C < CHROMATIC ? 'neutral' : -1]));
+  families.forEach((f, i) => f.members.forEach((m) => { if (group.get(m.hex) !== 'neutral' && group.has(m.hex)) group.set(m.hex, i); }));
+  const recipe = families.length ? RECIPES[scheme.name](families) : [['neutral', chips]];
+  const owed = new Map();
+  for (const [member, count] of recipe) {
+    const key = member === 'neutral' ? 'neutral' : member ? families.indexOf(member) : -1;
+    if (key !== -1) owed.set(key, (owed.get(key) ?? 0) + count);
+  }
+  for (const p of picks) owed.set(group.get(p.hex), (owed.get(group.get(p.hex)) ?? 0) - 1);
+  const order = [...owed.keys()].filter((k) => owed.get(k) > 0);
+  for (let over = order.reduce((s, k) => s + owed.get(k), 0) - (chips - picks.length); over > 0; over--) {
+    owed.set(order.findLast((k) => owed.get(k) > 0), owed.get(order.findLast((k) => owed.get(k) > 0)) - 1);
+  }
+
   const rest = colors.filter((c) => !picks.includes(c));
+  const join = (c) => { picks.push(c); roles.push(''); rest.splice(rest.indexOf(c), 1); };
+  for (const key of order) {
+    while (owed.get(key) > 0 && picks.length < chips) {
+      const mine = rest.filter((c) => group.get(c.hex) === key);
+      const apart = mine.filter((c) => picks.every((p) => far(c, p) >= MIN_APART));
+      const same = picks.filter((p) => group.get(p.hex) === key);
+      // A group becomes a ramp: each chip is the one farthest, mostly in lightness, from the group's chips so far.
+      const ramp = (c) => Math.min(...(same.length ? same : picks).map((p) => far(c, p, RAMP))) + (key === 'neutral' ? 0 : VIVID_PULL * c.C);
+      const best = apart.sort((a, b) => ramp(b) - ramp(a))[0];
+      if (!best) break; // nothing left in this group that is not a near-twin: what it was owed goes to the others
+      join(best);
+      owed.set(key, owed.get(key) - 1);
+    }
+  }
   while (picks.length < chips) {
-    // A family gathers round the base of the palette, not round the accent: the accent is there to stand out from it.
-    const base = picks.filter((_, i) => roles[i] !== 'accent');
-    const around = base.length ? base : picks;
-    // Best a chip that is no near-twin and whose family has room; then one that is no near-twin; then whatever is left.
+    // What is left over goes to the chip that is no near-twin and whose family has room; then any no near-twin; then whatever.
     const apart = rest.filter((c) => picks.every((p) => far(c, p) >= MIN_APART));
     const roomy = apart.filter((c) => roomFor(c, picks));
-    const scored = (roomy.length ? roomy : apart.length ? apart : rest)
-      .map((c) => ({ c, d: mode === 'cohesive' ? around.reduce((s, p) => s + far(c, p, 0.5), 0) / around.length - VIVID_PULL * c.C : -Math.min(...picks.map((p) => far(c, p))) }))
-      .sort((a, b) => a.d - b.d);
-    const at = mode === 'cohesive' ? Math.floor(random() * Math.min(WOBBLE, scored.length)) : 0;
-    picks.push(scored[at].c);
-    roles.push('');
-    rest.splice(rest.indexOf(scored[at].c), 1);
+    const from = roomy.length ? roomy : apart.length ? apart : rest;
+    join(from.sort((a, b) => Math.min(...picks.map((p) => far(b, p))) - Math.min(...picks.map((p) => far(a, p))))[0]);
   }
   const bare = ({ hex, x, y }) => ({ hex, x, y });
-  return { picks: picks.map(bare), roles, mode, spare: rest.map(bare) };
+  return { picks: picks.map(bare), roles, mode: scheme.name, spare: rest.map(bare) };
 }
