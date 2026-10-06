@@ -70,8 +70,8 @@ async function load(file) {
   return work;
 }
 
-/** The working canvas shrunk to at most 200px on its long side, as ImageData. */
-function sample(work, max = 200) {
+/** The working canvas shrunk to at most 400px on its long side, as ImageData. */
+function sample(work, max = 400) {
   const s = Math.min(1, max / Math.max(work.width, work.height));
   const w = Math.max(1, Math.round(work.width * s)), h = Math.max(1, Math.round(work.height * s));
   const g = Object.assign(document.createElement('canvas'), { width: w, height: h }).getContext('2d', { willReadFrequently: true });
