@@ -1,4 +1,5 @@
 import { GROUND, brighter, glint, hit, inkFor, inkOver, mix, rgbToHex } from './color.js';
+import { nameColors } from './colorname.js';
 import { tagLayout } from './credit.js';
 
 // The finished palette card, drawn straight to a canvas in font-pixel units (see pixel.js)
@@ -126,8 +127,8 @@ export function renderCard(canvas, palette, s, { ui = false, dim = false } = {})
     g.fillText(text, x + textOffset(text, CHIP.w, s), y + LABEL_BASE * s);
   };
 
-  const n = palette.colors.length;
-  palette.colors.forEach((hex, i) => chip(n - 1 - i, hex, palette.copied === i ? 'COPIED' : hex));
+  const n = palette.colors.length, names = nameColors(palette.colors); // a click still copies the hex
+  palette.colors.forEach((hex, i) => chip(n - 1 - i, hex, palette.copied === i ? 'COPIED' : names[i]));
 
   if (dim) { // a veil of the ground color, laid before the name so the name is the same color on every card
     g.fillStyle = 'rgba(0, 0, 0, 0.5)';

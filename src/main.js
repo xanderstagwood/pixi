@@ -4,6 +4,7 @@ import { categoryName, numbered } from './credit.js';
 import { buildPalette } from './palette.js';
 import { imagesFrom } from './paste.js';
 import { categoryFor, direction, resist, springBack } from './gesture.js';
+import { loadColorNames } from './colorname.js';
 import { createPicker, loadPhotos } from './photos.js';
 import { createQueue } from './queue.js';
 import { CHIPS, cardCells, cardPng, chipAt, layout, paintTwinkle, renderCard, tagAt, twinkleCells } from './card.js';
@@ -640,7 +641,8 @@ watchPixelSnap(() => {
 });
 // Canvas text falls back to a plain font if it is drawn before the pixel font arrives, so
 // wait for the font before analysing, and redraw the cards whenever a font finishes loading.
-const fontReady = document.fonts.load('16px "Stagwood Sprite 64"');
+// The chips are named too, but a name list that fails to load only leaves them showing their hex.
+const fontReady = Promise.all([document.fonts.load('16px "Stagwood Sprite 64"'), loadColorNames().catch(() => {})]);
 // Cards from earlier visits come back once the pixel font is ready to draw their text.
 fontReady.then(() => {
   const kept = store.load();
