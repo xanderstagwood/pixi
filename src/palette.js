@@ -2,6 +2,7 @@ import { variations } from './color.js';
 import { decide } from './arrange.js';
 import { calmClash } from './clash.js';
 import { choose } from './chooser.js';
+import { lift } from './contrast.js';
 import { extractColors } from './extract.js';
 import { gradient } from './gradient.js';
 import { harmonize } from './harmony.js';
@@ -13,7 +14,7 @@ const POOL = 12; // colors of a picture the seven are chosen from
  * Everything about a palette that is settled before anything moves. The seven are chosen from the
  * picture's twelve for contrast and company (chooser.js). The free chips are nudged a little toward the palette's
  * own hue so they flow together (harmony.js), and the hero's family is tempered so the hero pops (intensity.js), and a vivid red beside a vivid green is faded to one of them (clash.js). The chips are ordered as one ramp, each color family in a block, and
- * their lightness fitted to it (gradient.js). Then each color keeps whichever of its five candidates makes the order
+ * their lightness fitted to it (gradient.js), and the lightest and darkest pushed apart if the card is flat (contrast.js). Then each color keeps whichever of its five candidates makes the order
  * fit best, never one that crowds another chip (decide). A picture that is answered exactly keeps its colors
  * exactly: nothing is nudged or fitted.
  * @param {{data: Uint8ClampedArray, width: number, height: number}} pixels
@@ -37,7 +38,8 @@ export function buildPalette(pixels, random = Math.random, chips = 7) {
   }
   // The order, and the chips' lightness fitted to it as one gradient (an exact palette is only ordered).
   const plan = gradient(clusters.map((c, i) => ({ hex: c.hex, role: roles[i] })), random, mode !== 'exact');
-  clusters = clusters.map((c, i) => ({ ...c, hex: plan.hexes[i] }));
+  const hexes = mode === 'exact' ? plan.hexes : lift(plan.hexes); // then the range, if the card came out flat
+  clusters = clusters.map((c, i) => ({ ...c, hex: hexes[i] }));
   const arrangement = { order: plan.order, temperature: plan.temperature, shade: plan.shade };
   const candidates = clusters.map((c) => (mode === 'exact' ? [c.hex] : variations(c.hex)));
   const keep = decide(candidates, arrangement, random);
