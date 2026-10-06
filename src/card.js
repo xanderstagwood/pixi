@@ -1,4 +1,4 @@
-import { GROUND, brighter, glint, hit, inkFor, inkOver, luminance, mix, rgbToHex } from './color.js';
+import { GROUND, brighter, glint, hit, inkFor, inkOver, mix, rgbToHex } from './color.js';
 import { tagLayout } from './credit.js';
 
 // The finished palette card, drawn straight to a canvas in font-pixel units (see pixel.js)
@@ -137,27 +137,36 @@ export function renderCard(canvas, palette, s, { ui = false, dim = false } = {})
   // The lines of text over the bloxels: the name at the bottom left, "curated by Pixi" and the logo at the bottom
   // right, and for a photo the credit tags along the top, all in the 16px face. Each takes its ink from the bloxels
   // behind it (inkOver): dark over light ones, light over dark, with a little of their color, so it reads and still
-  // belongs. A soft halo of the opposite tone (drawn twice) lifts it off a busy patch without a hard edge.
+  // belongs. The gaps between bloxels are black, which dark ink cannot be read on, so the ink is edged by a font pixel
+  // of the bloxels' average color: the letters carry their own backing across a gap, and the grid stays visible.
   g.font = `${16 * s}px "Stagwood Sprite 64", monospace`;
   const behind = (x, y, w, h) => {
     const out = [];
     for (let r = Math.floor(y / CELL); r <= Math.floor((y + h - 1) / CELL); r++) {
       for (let c = Math.floor(x / CELL); c <= Math.floor((x + w - 1) / CELL); c++) {
         const i = gridIndex(grid, first, c, r);
-        out.push(rgbToHex({ r: grid.rgb[i], g: grid.rgb[i + 1], b: grid.rgb[i + 2] }));
+        out.push({ r: grid.rgb[i], g: grid.rgb[i + 1], b: grid.rgb[i + 2] });
       }
     }
     return out;
   };
   const write = (draw, x, y, w, alpha = 1) => {
-    const ink = inkOver(behind(x, y, w, 16));
+    const colors = behind(x, y, w, 16);
+    const mean = (k) => Math.round(colors.reduce((sum, c) => sum + c[k], 0) / colors.length);
+    const ink = inkOver(colors.map(rgbToHex));
     g.save();
     g.globalAlpha = alpha;
-    g.shadowColor = luminance(ink) > 0.5 ? 'rgba(0, 0, 0, 0.85)' : 'rgba(255, 255, 255, 0.6)';
-    g.shadowBlur = 6 * s;
-    g.shadowOffsetY = 2 * s;
+    g.fillStyle = rgbToHex({ r: mean('r'), g: mean('g'), b: mean('b') });
+    for (let dy = -1; dy <= 1; dy++) {
+      for (let dx = -1; dx <= 1; dx++) {
+        if (!dx && !dy) continue;
+        g.save();
+        g.translate(dx * s, dy * s);
+        draw();
+        g.restore();
+      }
+    }
     g.fillStyle = ink;
-    draw();
     draw();
     g.restore();
     return ink;
