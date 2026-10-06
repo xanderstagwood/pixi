@@ -40,7 +40,37 @@ export function luminance(hex) {
   return (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
 }
 
-export const inkFor = (hex) => (luminance(hex) > 0.5 ? '#1B1A19' : '#F3F2F1');
+/** WCAG contrast ratio between two colors, 1 (none) to 21 (black on white). */
+export function contrast(a, b) {
+  const lum = (hex) => {
+    const { r, g, b: blue } = hexToRgb(hex);
+    const lin = (v) => ((v / 255) <= 0.03928 ? v / 255 / 12.92 : ((v / 255 + 0.055) / 1.055) ** 2.4);
+    return 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(blue);
+  };
+  const [hi, lo] = [lum(a), lum(b)].sort((x, y) => y - x);
+  return (hi + 0.05) / (lo + 0.05);
+}
+
+const INK_CHROMA = 0.05; // the most chroma label ink carries: enough to be of its chip's color, not enough to fight it
+const INK_CONTRAST = 5; // what it asks of a label, a little over the 4.5 that reads comfortably
+const INK_DARK = 0.2, INK_LIGHT = 0.985; // where it may go at the furthest: the card's own grays
+
+/**
+ * The ink for text on a chip: the chip's own hue and a little of its chroma, as close to the chip's lightness as
+ * still reads. Pure black and white would sit on the palette like stickers; this belongs to it.
+ * A chip too mid-toned to reach the contrast gets the furthest ink on its better side.
+ */
+export function inkFor(hex) {
+  const { L, C, h } = toOklch(rgbToOklab(hexToRgb(hex)));
+  const ink = (l) => rgbToHex(oklchToRgb({ L: l, C: Math.min(C, INK_CHROMA), h }));
+  const far = contrast(ink(INK_DARK), hex) >= contrast(ink(INK_LIGHT), hex) ? INK_DARK : INK_LIGHT;
+  let near = 0, away = 1; // how far from the chip's lightness toward `far`
+  for (let i = 0; i < 16; i++) {
+    const t = (near + away) / 2;
+    if (contrast(ink(L + (far - L) * t), hex) >= INK_CONTRAST) away = t; else near = t;
+  }
+  return ink(L + (far - L) * away);
+}
 
 const lifted = new Map();
 
