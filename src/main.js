@@ -317,9 +317,10 @@ const MAX_BATCH = 9;
 let batchTotal = 0, batchDone = 0;
 const counter = $('counter');
 const showCount = () => {
-  counter.hidden = batchTotal === 0;
-  $('count').textContent = `${Math.min(batchDone + 1, batchTotal)}/${batchTotal}`;
-  $('skip').hidden = batchTotal - batchDone < 2; // on the last image, skipping is cancelling
+  const total = batchTotal + waiting; // photos still to come count too
+  counter.hidden = total === 0;
+  $('count').textContent = `${Math.min(batchDone + 1, total)}/${total}`;
+  $('skip').hidden = total - batchDone < 2; // on the last image, skipping is cancelling
 };
 const batch = createQueue(async (file, left) => {
   showCount();
@@ -329,7 +330,7 @@ const batch = createQueue(async (file, left) => {
 // is being made (`locked`) there is nothing to cancel, and the buttons are hidden by CSS.
 const skip = () => { if (!session?.locked) session?.abort.abort(); };
 $('skip').addEventListener('click', skip);
-$('cancel').addEventListener('click', () => { batch.clear(); skip(); });
+$('cancel').addEventListener('click', () => { cancelPicks(); batch.clear(); skip(); });
 const addImages = (files) => {
   const { take, refused } = triage(files, { room: Math.max(0, MAX_BATCH - batchTotal), maxBytes: MAX_BYTES });
   if (refused.length) say(refused[0]);
@@ -342,39 +343,81 @@ const addImages = (files) => {
 /* ---- photos: the button under "new", and the sets it chooses from ---- */
 
 // A photo comes down as a file, like one dropped, with who to credit riding along.
-let pick = null;
+let picker = null; // one list and one picker for every pick, however many come at once
+const photoPicker = () => (picker ??= loadPhotos().then(createPicker).catch((err) => { picker = null; throw err; }));
 async function photoFile(category) {
-  pick ??= createPicker(await loadPhotos());
-  const photo = pick(category);
+  const photo = (await photoPicker())(category);
   const response = await fetch(photo.url);
   if (!response.ok) throw new Error(`photo ${photo.id}: ${response.status}`);
   const blob = await response.blob();
   const credit = { artist: photo.artist, artistLink: photo.artistLink, link: photo.link };
   return Object.assign(new File([blob], `${photo.id}.jpg`, { type: blob.type || 'image/jpeg' }), { category, credit });
 }
-/** One more try with another photo if the first will not come; then the mind goblin gets the blame. */
-async function addPhoto(category) {
+/** The photo for a pick, with one more try (another photo) if the first will not come; null if neither does. */
+async function photoOf(category) {
   for (let attempt = 0; attempt < 2; attempt++) {
-    try { addImages([await photoFile(category)]); return; } catch (err) { console.error(err); }
+    try { return await photoFile(category); } catch (err) { console.error(err); }
   }
-  say('no-photo');
+  return null;
+}
+
+// Picks wait a moment before any photo is fetched, and each new pick restarts the wait, so there is time to queue
+// up more; the counter tag is up from the first pick. `waiting` counts the picks whose photo is not in the queue yet.
+const PAUSE = 1500;
+let queued = [], waiting = 0, settle = null, epoch = 0;
+function pickPhoto(category) {
+  if (batchTotal + waiting >= MAX_BATCH) { say('too-many'); return false; }
+  queued.push(category);
+  waiting++;
+  showCount();
+  clearTimeout(settle);
+  settle = setTimeout(sendPicks, PAUSE);
+  return true;
+}
+async function sendPicks() {
+  const categories = queued.splice(0), mine = epoch;
+  const files = await Promise.all(categories.map(photoOf));
+  if (mine !== epoch) return; // cancelled while the photos were coming
+  waiting -= categories.length;
+  const got = files.filter(Boolean);
+  if (got.length < categories.length) say('no-photo');
+  if (got.length) addImages(got); else showCount();
+}
+function cancelPicks() {
+  clearTimeout(settle);
+  queued = [];
+  waiting = 0;
+  epoch++;
+  showCount();
 }
 
 const photoButton = carousel.add.querySelector('.add-photo'), photoIcon = photoButton.querySelector('.icon');
 const showIcon = (name) => { photoIcon.className = `icon icon--${name}`; };
 const nudge = (x, y) => { const { css } = unit(); photoIcon.style.transform = x || y ? `translate(${x * css}px, ${y * css}px)` : ''; };
-let choosing = false;
-/** The icon turns into the set's own, fades out, and the photo is fetched; then the lizard steps back in. */
-async function choose(category) {
-  if (choosing) return;
-  choosing = true;
-  showIcon(category);
-  if (!stillMotion()) await unlessAway(photoIcon.animate([{ opacity: 1 }, { opacity: 1, offset: 0.4 }, { opacity: 0 }], { duration: 800, easing: 'steps(8)', fill: 'forwards' }).finished);
-  addPhoto(category);
-  showIcon('lizard');
+const fade = (from, to, ms) => unlessAway(photoIcon.animate([{ opacity: from }, { opacity: to }], { duration: ms, easing: 'steps(4)', fill: 'forwards' }).finished);
+
+let swaps = 0, choice = 0;
+/** The icon fades out, turns into `name` and fades in; a newer swap cuts this one short. Resolves true if it was not cut short. */
+async function swapIcon(name, force = false) {
+  const run = ++swaps;
+  const same = photoIcon.classList.contains(`icon--${name}`);
+  if (same && !force) { await fade(getComputedStyle(photoIcon).opacity, 1, 100); return run === swaps; }
+  if (!stillMotion()) await fade(1, 0, 150);
+  if (run !== swaps) return false;
+  showIcon(name);
+  if (!stillMotion()) await fade(0, 1, 150);
+  if (run !== swaps) return false;
   photoIcon.getAnimations().forEach((a) => a.cancel());
-  if (!stillMotion()) photoIcon.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 500, easing: 'steps(6)' });
-  choosing = false;
+  return true;
+}
+/** A choice is made: the pick is queued at once, the icon shows the set's own for a moment, then the lizard comes back. */
+async function choose(category, shown = false) {
+  if (!pickPhoto(category)) return;
+  const mine = ++choice;
+  if (!shown && !(await swapIcon(category, true))) return;
+  if (category === 'lizard') return;
+  await sleep(450);
+  if (mine === choice) await swapIcon('lizard');
 }
 
 photoButton.addEventListener('click', (e) => choose(categoryFor({ button: 0, alt: e.altKey })));
@@ -385,21 +428,23 @@ photoButton.addEventListener('contextmenu', (e) => { // a long-press on touch is
   if (!touching) choose(categoryFor({ button: 2, alt: e.altKey }));
 });
 
-// Dragging the button picks by direction on release; the icon follows the pointer, turns into the set's own icon once it
-// has gone far enough, and springs back to the middle when let go.
+// Dragging the button picks by direction on release. The icon follows the pointer nearly to the edge of its half of the
+// card, fades into the set's own icon once it has gone far enough, and springs back to the middle when let go.
 photoButton.addEventListener('pointerdown', (e) => {
-  if (e.button !== 0 || e.altKey || choosing) return;
+  if (e.button !== 0 || e.altKey) return;
   const x0 = e.clientX, y0 = e.clientY, { css } = unit();
+  const room = photoButton.getBoundingClientRect(), size = photoIcon.getBoundingClientRect();
+  const limit = { x: (room.width - size.width) / 2 / css - 4, y: (room.height - size.height) / 2 / css - 4 }; // font pixels
   let dragging = false, category = null, shown = { x: 0, y: 0 };
   photoButton.setPointerCapture(e.pointerId);
   const move = (ev) => {
     const dx = (ev.clientX - x0) / css, dy = (ev.clientY - y0) / css;
     if (!dragging && Math.hypot(dx, dy) < 10) return; // under this it is a click
     dragging = true;
-    shown = { x: Math.round(resist(dx)), y: Math.round(resist(dy)) };
+    shown = { x: Math.round(resist(dx, limit.x)), y: Math.round(resist(dy, limit.y)) };
     nudge(shown.x, shown.y);
     const next = direction(dx, dy);
-    if (next !== category) { category = next; showIcon(next ?? 'lizard'); }
+    if (next !== category) { category = next; swapIcon(next ?? 'lizard'); }
   };
   const up = async (ev) => {
     photoButton.removeEventListener('pointermove', move);
@@ -410,13 +455,14 @@ photoButton.addEventListener('pointerdown', (e) => {
     addEventListener('click', swallow, true);
     setTimeout(() => removeEventListener('click', swallow, true), 100);
     const chosen = ev.type === 'pointerup' ? category : null;
+    if (chosen) choose(chosen, true); // queued now; the spring plays while the icon holds
+    else swapIcon('lizard');
     if (stillMotion()) nudge(0, 0);
     else {
       const frames = springBack(shown).map((f) => ({ transform: `translate(${f.x * css}px, ${f.y * css}px)` }));
       await unlessAway(photoIcon.animate(frames, { duration: 700, easing: 'linear' }).finished);
       nudge(0, 0);
     }
-    if (chosen) choose(chosen); else showIcon('lizard');
   };
   photoButton.addEventListener('pointermove', move);
   photoButton.addEventListener('pointerup', up);

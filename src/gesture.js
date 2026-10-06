@@ -1,6 +1,7 @@
 // What a click or a drag on the lizard button asks for, and how its icon moves meanwhile. No page in here.
 
-const FAR = 24; // font pixels a drag must go to choose, and the furthest the icon follows the pointer freely
+const FAR = 24; // font pixels a drag must go to choose
+const OVER = 8; // how much further than its limit the icon can be pulled
 const FRAMES = 32;
 
 /** The photo set a click asks for: left the lizard, right the crab, middle the birds, with alt the stag and the bones. */
@@ -17,10 +18,10 @@ export function direction(dx, dy) {
   return dy < 0 ? 'bird' : 'bones';
 }
 
-/** How far the icon moves for a pointer that has moved `d`: with it at first, then less and less, never past a stop. */
-export function resist(d) {
+/** How far the icon moves for a pointer that has moved `d`: with it, right up to `limit` (nearly the edge of its button), then a little more and no further. */
+export function resist(d, limit) {
   const a = Math.abs(d);
-  return Math.sign(d) * (a <= FAR ? a : FAR + 16 * (1 - Math.exp(-(a - FAR) / FAR)));
+  return Math.sign(d) * (a <= limit ? a : limit + OVER * (1 - Math.exp(-(a - limit) / OVER)));
 }
 
 /**

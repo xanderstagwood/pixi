@@ -23,13 +23,14 @@ assert.equal(direction(20, 0), null, 'not far enough yet');
 assert.equal(direction(8, 6), null, 'a small movement is a click');
 assert.equal(direction(24, 0), 'crab', 'exactly the distance counts');
 
-// While dragging, the icon follows the pointer up to a point and then resists.
-assert.equal(resist(0), 0);
-assert.equal(resist(10), 10, 'it follows closely at first');
-assert.equal(resist(-10), -10, 'in either direction');
-assert.ok(resist(60) > 24 && resist(60) < 60, 'past the limit it still moves, but less than the pointer');
-assert.ok(resist(200) < 40, 'and not far, however far the pointer goes');
-assert.ok(resist(80) > resist(60), 'it never goes backward');
+// While dragging, the icon follows the pointer freely nearly to the edge of its button (`limit`), then resists a little.
+assert.equal(resist(0, 100), 0);
+assert.equal(resist(60, 100), 60, 'it follows closely');
+assert.equal(resist(-60, 100), -60, 'in either direction');
+assert.equal(resist(100, 100), 100, 'right up to the limit');
+assert.ok(resist(130, 100) > 100 && resist(130, 100) < 130, 'past it, it moves less than the pointer');
+assert.ok(resist(1000, 100) < 110, 'and only a little further, however far the pointer goes');
+assert.ok(resist(140, 100) > resist(120, 100), 'it never goes backward');
 
 // Let go, it springs back to the middle, overshoots and settles.
 {
