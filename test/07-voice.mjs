@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { EVENTS, GOBLIN, LINES, MIXES, SUBJECTS, allLines, createVoice } from '../src/voice.js';
 import { mulberry32 } from './img.mjs';
 
-assert.deepEqual([...EVENTS].sort(), ['ANALYZING', 'EXPANDING', 'REST', 'SHRINKING', 'empty', 'not-image', 'too-big', 'too-many', 'unreadable'], 'every phase, her resting and every way a drop is turned away has a voice');
+assert.deepEqual([...EVENTS].sort(), ['ANALYZING', 'EXPANDING', 'REST', 'SHRINKING', 'empty', 'no-photo', 'not-image', 'too-big', 'too-many', 'unreadable'], 'every phase, her resting and every way a drop is turned away has a voice');
 
 const TECH = /\b(algorithm|cluster|k-?means|rule|threshold|accent|pool|extract|rgb|hex|sample|bytes?|mb|error|invalid|unsupported|failed)\b/i;
 const check = (line, where) => {
@@ -65,7 +65,7 @@ assert.ok(MIXES.ANALYZING.some((a) => a[0] === 'distracted' && a.includes('by'))
 
 // The mind goblin is who she blames, always, when a drop is turned away: an error, a failure, someone trying to trick her.
 const TURNED_AWAY = EVENTS.filter((e) => !MIXES[e]);
-assert.deepEqual([...TURNED_AWAY].sort(), ['empty', 'not-image', 'too-big', 'too-many', 'unreadable'], 'every way a drop is turned away is blamed on the goblin');
+assert.deepEqual([...TURNED_AWAY].sort(), ['empty', 'no-photo', 'not-image', 'too-big', 'too-many', 'unreadable'], 'every way a drop is turned away is blamed on the goblin');
 for (const event of TURNED_AWAY) {
   assert.ok(LINES[event].length >= 4, `${event} has plenty of goblin lines`);
   LINES[event].forEach((l) => assert.ok(l.includes(GOBLIN), `"${l}" blames the mind goblin`));

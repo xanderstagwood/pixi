@@ -19,6 +19,7 @@ export const LINES = {
   'too-big': ['the mind goblin cannot lift that', 'the mind goblin says too heavy', 'the mind goblin sat on that one', 'too big, ask the mind goblin'],
   unreadable: ['the mind goblin chewed that file', 'the mind goblin scrambled that one', 'blame the mind goblin for that', 'the mind goblin hid that file'],
   'too-many': ['the mind goblin counts to nine', 'the mind goblin says enough', 'greedy. the mind goblin noticed', 'the mind goblin is watching you'],
+  'no-photo': ['the mind goblin hid that photo', 'the mind goblin ate the photo', 'no photo, the mind goblin says', 'the mind goblin dropped it in a puddle'],
   empty: ['the mind goblin took the picture', 'the mind goblin ate everything', 'the mind goblin stole all of it', 'the mind goblin left nothing'],
 };
 
