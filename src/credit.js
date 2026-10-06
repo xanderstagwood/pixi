@@ -1,8 +1,8 @@
 // What a card says about its photo, in the pixel font: the artist's credit and the Unsplash tag along the top.
 
 // Letters beyond plain ASCII that the font draws. Anything else is stripped to its base letter, or dropped.
-// ponytail: a list kept by hand, add a letter here when it is drawn into the font.
-const DRAWN = '';
+// ponytail: a list kept by hand, in step with the accents in fonts/stagwood-sprite-64.ttf: add a letter when it is drawn.
+const DRAWN = 'ıáéíóúýćńÉàèìòùäëïöüåãõñčěšřžāēīōūçłø';
 const STROKED = { ł: 'l', Ł: 'L', ø: 'o', Ø: 'O' }; // no accent to strip: these have a stroke through them
 
 const MARGIN = 12; // font pixels from the card's edge, the same as the footer's

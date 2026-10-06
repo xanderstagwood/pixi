@@ -5,9 +5,12 @@ import assert from 'node:assert/strict';
 import { categoryName, creditName, ellipsize, tagLayout } from '../src/credit.js';
 
 assert.equal(creditName('Dikaseva'), 'Dikaseva', 'plain names pass through');
-assert.equal(creditName('Jiří Suchý'), 'Jiri Suchy', 'accents the font lacks are stripped to their letter');
+assert.equal(creditName('Jiří Suchý'), 'Jiří Suchý', 'accents the font draws are kept');
+assert.equal(creditName('Jiří Suchý', ''), 'Jiri Suchy', 'and the ones it lacks are stripped to their letter');
+assert.equal(creditName('Őszi ünde'), 'Oszi ünde', 'an accent the font lacks goes even where its letter has others');
 assert.equal(creditName('Jiří Suchý', 'íř'), 'Jiří Suchy', 'and kept where the font has them');
-assert.equal(creditName('Pawłowski Øyvind'), 'Pawlowski Oyvind', 'letters with a stroke have no accent to strip, so they are swapped');
+assert.equal(creditName('Pawłowski Øyvind', ''), 'Pawlowski Oyvind', 'letters with a stroke have no accent to strip, so they are swapped');
+assert.equal(creditName('Pawłowski Øyvind'), 'Pawłowski Oyvind', 'unless the font draws them');
 assert.equal(creditName('Sam 🐷'), 'Sam', 'what cannot be drawn is dropped, and the space it leaves with it');
 assert.equal(creditName('𝕡𝕒𝕤𝕟'), 'pasn', 'styled letters turn into plain ones');
 assert.equal(creditName('庆'), 'an Unsplash artist', 'a name with nothing drawable left is credited anonymously');
