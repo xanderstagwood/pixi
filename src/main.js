@@ -1,10 +1,10 @@
 import { rand, resume, skipped, sleep, unlessAway, watchFrames } from './anim.js';
 import { hexToRgb, sequence } from './color.js';
-import { categoryName, numbered } from './credit.js';
+import { numbered } from './credit.js';
 import { buildPalette } from './palette.js';
 import { imagesFrom } from './paste.js';
 import { categoryFor, direction, resist, springBack } from './gesture.js';
-import { loadColorNames } from './colorname.js';
+import { loadColorNames, nameColors } from './colorname.js';
 import { loadPalNames, namePalette } from './palname.js';
 import { createPicker, loadPhotos } from './photos.js';
 import { createQueue } from './queue.js';
@@ -154,12 +154,10 @@ function cardRect() {
   return new DOMRect(c.x - w / 2, c.y - h / 2, w, h);
 }
 
-/** What a fresh card is called: its photo's category, or a name made from its colors (numbered if a card already has it), or if the word lists never came, the first 16 characters of the file's name without its extension. */
+/** What a fresh card is called: a name made from its colors (numbered if a card already has it), or if the word lists never came, the first 16 characters of the file's name without its extension. */
 function defaultName(file, colors) {
-  const taken = () => [...track.querySelectorAll('.card.palette')].map((c) => c.palette.name);
-  if (file.category) return numbered(categoryName(file.category), taken());
   const made = namePalette(colors);
-  return made ? numbered(made, taken()) : file.name.replace(/\.[^.]*$/, '').trim().slice(0, 16);
+  return made ? numbered(made, [...track.querySelectorAll('.card.palette')].map((c) => c.palette.name)) : file.name.replace(/\.[^.]*$/, '').trim().slice(0, 16);
 }
 
 /** @param {boolean} last no more images are waiting, so the name field may take focus */
@@ -197,6 +195,7 @@ async function analyzeOne(file, last, deadline) {
     // The show: the blocks grow, drones hunt the colors, the chips land and lock. It keeps its place (`seen`), so a show
     // cut short when the user was away is picked up where they last saw it, and what they saw is not played again.
     // `f` is how much of its time each part takes.
+    const names = nameColors(plan.colors); // each chip's name, which replaces its hex as the chips lock
     const seen = { wave: 0, landed: new Set(), locked: false, held: false };
     const rgbOf = (hex) => Object.values(hexToRgb(hex));
     const targets = clusters.map((c) => ({ rgb: rgbOf(c.hex) }));
@@ -234,7 +233,7 @@ async function analyzeOne(file, last, deadline) {
       if (seen.landed.size < clusters.length) { scan?.clear(); return; } // cut short before every chip landed
       bloxels.twinkle.stop(); // the lit ones fade out well before the window closes
       if (!seen.locked) {
-        await until(Promise.all(clusters.map((_, slot) => sleep(slot * T.lockGap * f).then(() => stack.lock(slot)))));
+        await until(Promise.all(clusters.map((_, slot) => sleep(slot * T.lockGap * f).then(() => stack.lock(slot, names[slot])))));
         seen.locked = !skipped();
       }
       if (!seen.held) {
@@ -259,7 +258,7 @@ async function analyzeOne(file, last, deadline) {
       resume();
       await play(Math.min(1, Math.max(0.25, left / Math.max(1, remaining))));
     }
-    if (skipped() && stack) clusters.forEach((_, i) => stack.swapTo(slotOf[i], candidates[i][keep[i]])); // cut short for good: the chips still show what was kept
+    if (skipped() && stack) clusters.forEach((_, i) => stack.swapTo(slotOf[i], candidates[i][keep[i]], names[slotOf[i]])); // cut short for good: the chips still show what was kept
     setStatus('SHRINKING');
     await stage.close(cardRect);
     // The window has closed onto the card exactly, and the card is the same blocks and chips in

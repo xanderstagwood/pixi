@@ -6,23 +6,27 @@ import { unit } from './pixel.js';
 const EMPTY = '#201F1E';
 const SLIDE_MS = 220;
 
+/** Writes `label` on a chip, centered by hand on a whole device pixel, exactly as src/card.js draws it. */
+const write = (el, label) => {
+  const { n, dpr } = unit();
+  el.textContent = label;
+  el.style.paddingLeft = `${label ? textOffset(label, CHIP_W, n) / dpr : 0}px`;
+};
+
 const chip = (hex, label = hex) => {
   const el = document.createElement('div');
   el.className = 'chip';
   el.style.setProperty('--c', hex);
   el.style.setProperty('--ink', inkFor(hex));
   el.style.setProperty('--hit', brighter(hex, CHIP_HIT)); // the light hit along its top, the same one card.js draws
-  el.textContent = label;
-  // Centered by hand, on a whole device pixel, exactly as src/card.js draws it.
-  const { n, dpr } = unit();
-  el.style.paddingLeft = `${label ? textOffset(label, CHIP_W, n) / dpr : 0}px`;
+  write(el, label);
   return el;
 };
 
 /**
  * A vertical stack of color slots. Slot 0 sits at the bottom
  * (column-reverse), so index order matches the palette array.
- * @returns {{el: HTMLElement, swapTo: (i: number, hex: string) => Promise<void>, lock: (i: number) => Promise<void>}}
+ * @returns {{el: HTMLElement, swapTo: (i: number, hex: string, label?: string) => Promise<void>, lock: (i: number, label?: string) => Promise<void>}}
  */
 export function createStack(n = 7) {
   const el = document.createElement('div');
@@ -36,8 +40,8 @@ export function createStack(n = 7) {
   });
 
   /** Slide a new chip up into the slot, pushing the current one out the top. */
-  async function swapTo(i, hex) {
-    const slot = slots[i], prev = slot.cur, next = chip(hex);
+  async function swapTo(i, hex, label) {
+    const slot = slots[i], prev = slot.cur, next = chip(hex, label);
     slot.append(next);
     slot.cur = next;
     const slide = (from, to) => [{ transform: `translateY(${from}%)` }, { transform: `translateY(${to}%)` }];
@@ -47,8 +51,9 @@ export function createStack(n = 7) {
     prev.remove();
   }
 
-  /** A hard white frame that snaps off: the "locked in" beat. */
-  async function lock(i) {
+  /** A hard white frame that snaps off: the "locked in" beat, where the chip's hex gives way to `label` (its name). */
+  async function lock(i, label) {
+    if (label) write(slots[i].cur, label);
     const flash = document.createElement('div');
     flash.className = 'flash';
     slots[i].append(flash);

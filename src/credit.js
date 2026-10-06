@@ -22,11 +22,7 @@ export function creditName(artist, drawn = DRAWN) {
   return out.replace(/\s+/g, ' ').trim() || 'an Unsplash artist';
 }
 
-const NAMES = { lizard: 'lizard, lizard, lizard...', crab: 'all become crab', bird: 'birb' }; // on purpose
-/** What a category's photos are called, which is also what a fresh card from them is named. */
-export const categoryName = (category) => NAMES[category] ?? category;
-
-/** `name`, or the lowest number after it that no name in `taken` has: crab, crab 2, crab 3. */
+/** `name`, or the lowest number after it that no name in `taken` has: Mocha Scone, Mocha Scone 2. */
 export function numbered(name, taken) {
   let n = 1;
   while (taken.includes(n > 1 ? `${name} ${n}` : name)) n++;
