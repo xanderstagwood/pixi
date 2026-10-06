@@ -32,16 +32,21 @@ export function extractColors({ data, width, height }, k = 7, iterations = 12, r
     px.forEach((p, i) => { nearest[i] = Math.min(nearest[i], dist(at(p), newest)); });
   }
 
-  const owner = new Int16Array(px.length);
+  const owner = new Int16Array(px.length).fill(-1);
   for (let it = 0; it < iterations; it++) {
     const sums = cents.map(() => [0, 0, 0, 0]);
-    px.forEach((p, i) => {
-      const c = at(p);
+    let moved = false;
+    for (let i = 0; i < px.length; i++) {
+      const p = px[i], r = data[p], g = data[p + 1], b = data[p + 2];
       let bi = 0, bd = Infinity;
-      cents.forEach((m, j) => { const d = dist(c, m); if (d < bd) { bd = d; bi = j; } });
-      owner[i] = bi;
-      const s = sums[bi]; s[0] += c[0]; s[1] += c[1]; s[2] += c[2]; s[3]++;
-    });
+      for (let j = 0; j < cents.length; j++) {
+        const m = cents[j], d = (r - m[0]) ** 2 + (g - m[1]) ** 2 + (b - m[2]) ** 2;
+        if (d < bd) { bd = d; bi = j; }
+      }
+      if (owner[i] !== bi) { owner[i] = bi; moved = true; }
+      const s = sums[bi]; s[0] += r; s[1] += g; s[2] += b; s[3]++;
+    }
+    if (!moved) break; // nobody changed sides, so the centroids would come out the same again
     sums.forEach((s, j) => { if (s[3]) cents[j] = [s[0] / s[3], s[1] / s[3], s[2] / s[3]]; });
   }
 
