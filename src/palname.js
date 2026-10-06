@@ -2,11 +2,15 @@ import { nameColors } from './colorname.js';
 import { hexToRgb } from './color.js';
 import { rgbToOklab, toOklch } from './oklab.js';
 
+/** The grid a color's look is read off: hues and lightnesses in equal steps, chroma in three (grey, muted, vivid). */
+export const GRID = { hues: 24, lights: 8, chromas: [0.04, 0.12] };
+
 const DARK = 0.5, LIGHT = 0.7; // mean lightness: below is dark, from here light
 const VIVID = 0.1; // mean chroma from which a palette is loud rather than soft
 const AGREE = 0.12; // how far, in OKLab, a chip's color may be from the color its word usually has before the word stops counting much
 const NAMED = 0.1; // what a chip whose name uses a theme's word adds to the theme, beside how well the theme's colors cover the palette
 const MIN_SCORE = 0.05; // a theme that suits the palette less than this is no theme
+const LOOKS = 0.6; // how often a name's mood word is what the chips look like, not the palette's overall mood
 const FITS = 24; // characters the name box on a card holds, at the most (it is 160 font pixels, a letter about 6)
 const TRIES = 12;
 
@@ -19,11 +23,20 @@ export function moodOf(colors) {
 }
 
 const SMALL = new Set(['of', 'the', '&']); // left lower case inside a name
+/** Which cell of the GRID a color falls in (a grey has no hue, so it has one cell per lightness): where the words that say what it looks like are kept. */
+export function lookCell(hex) {
+  const { L, C, h } = toOklch(rgbToOklab(hexToRgb(hex)));
+  const c = GRID.chromas.filter((edge) => C >= edge).length;
+  const l = Math.min(GRID.lights - 1, Math.floor(L * GRID.lights));
+  return (c * GRID.lights + l) * GRID.hues + (c ? Math.floor(h / (360 / GRID.hues)) % GRID.hues : 0);
+}
+
 const title = (text) => text.replace(/(^|\s)([a-z]+)/g, (all, space, word, at) => (at > 0 && SMALL.has(word) ? all : space + word[0].toUpperCase() + word.slice(1)));
 
 /**
- * @param {{themes: Record<string, {k: string, n: string, a: string, v: string}>, moods: Record<string, string>, colors?: Record<string, string>}} words
- *   data/words.json; `colors` is the hex each theme word usually has in a color name
+ * @param {{themes: Record<string, {k: string, n: string, a: string, v: string}>, moods: Record<string, string>, colors?: Record<string, string>, looks?: Record<string, string>}} words
+ *   data/words.json; `colors` is the hex each theme word usually has in a color name, `looks` the words that say what a
+ *   color looks like, by its lookCell
  * @returns {(colors: string[], chipNames: string[], random?: () => number) => string} a palette's name: the theme whose
  *   words' usual colors cover the palette best (a chip whose name uses a theme's word helps it a little, as far as the
  *   chip has that word's color; none suiting is wonder), the mood of its colors, and a shape to join them. Words are
@@ -55,7 +68,9 @@ export function createPalNamer(words) {
     });
     const top = Math.max(...votes);
     const theme = top >= MIN_SCORE ? pick(themes.filter((_, i) => votes[i] > top - 1e-9)) : wonder;
-    const mood = pick(moods[moodOf(colors)]);
+    // What the palette looks like, in the words of its own chips; a chip's cell with none (the gamut has no such color) is no help.
+    const looks = colors.flatMap((hex) => (words.looks?.[lookCell(hex)] ?? '').split(',').filter(Boolean));
+    const mood = looks.length && random() < LOOKS ? pick(looks) : pick(moods[moodOf(colors)]);
     const shapes = [
       () => `${mood} ${pick(theme.n)}`,
       () => `${pick(theme.a)} ${pick(theme.n)}`,

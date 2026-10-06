@@ -1,6 +1,6 @@
 // palname: a palette is called by a theme its chips' names point at and the mood of its colors, in a few shapes.
 import assert from 'node:assert/strict';
-import { createPalNamer, moodOf } from '../src/palname.js';
+import { createPalNamer, lookCell, moodOf } from '../src/palname.js';
 import { mulberry32 } from './img.mjs';
 
 const words = {
@@ -51,6 +51,19 @@ assert.ok(/cinder|spark|smoldering|kindle|fierce|hushed/i.test(name(['#223344', 
     const b = brown(browns, ['Chocolate Mint', 'Cocoa Leaf'], mulberry32(seed));
     assert.ok(!/fern|grove|mossy|sway/i.test(b), `"${b}" is no forest name for a palette of browns`);
   }
+}
+
+// The look of a color: which cell of the lightness, chroma and hue grid it falls in, where the words that describe it live.
+assert.equal(lookCell('#101010'), lookCell('#161616'), 'two near-blacks look alike');
+assert.notEqual(lookCell('#101010'), lookCell('#EEEEEE'), 'a black and a white do not');
+assert.equal(lookCell('#808080'), lookCell('#7A7A7A'), 'greys of one lightness share a cell whatever their faint tint');
+assert.notEqual(lookCell('#D03030'), lookCell('#3030D0'), 'a red and a blue do not');
+assert.notEqual(lookCell('#B04040'), lookCell('#8A7A7A'), 'a vivid red and a muted one do not');
+{
+  const looks = { ...words, looks: Object.fromEntries([lookCell('#101010'), lookCell('#EEEEEE')].map((cell, i) => [cell, i ? 'luminousword' : 'inkyword'])) };
+  const names = Array.from({ length: 60 }, (_, seed) => createPalNamer(looks)(['#101010', '#111111'], ['Black', 'Black'], mulberry32(seed + 1)));
+  assert.ok(names.some((n) => /inky/i.test(n)), 'a dark palette is sometimes called by what its own colors look like');
+  assert.ok(!names.some((n) => /luminous/i.test(n)), 'and never by what a pale color looks like');
 }
 
 console.log('ok 25-palname');

@@ -4,10 +4,14 @@
 // use for the theme (k): a chip called "Lagoon Mist" can then pick the sea. Only words that mean what the seeds mean
 // count (not ones that merely turn up near them: `pond` turns up near everything), and a word that means something to
 // more than TWO themes belongs to none of them, unless it is one of a theme's own seeds.
+// The looks (what each color of a grid looks like, in the words of color-description, https://github.com/words/color-description)
+// come from that package: npm i --no-save color-description first.
 // Run by hand when the seeds change: node scripts/words/build.mjs (needs the network; the app never does).
 import { readFileSync, writeFileSync } from 'node:fs';
 import { hexToRgb, rgbToHex } from '../../src/color.js';
-import { oklabToRgb, rgbToOklab } from '../../src/oklab.js';
+import { oklabToRgb, oklchToRgb, rgbToOklab } from '../../src/oklab.js';
+import { GRID, lookCell } from '../../src/palname.js';
+import ColorDescription from 'color-description';
 
 const here = new URL('.', import.meta.url);
 const seeds = JSON.parse(readFileSync(new URL('seeds.json', here), 'utf8'));
@@ -57,8 +61,27 @@ function usualColors(wanted) {
   return Object.fromEntries([...sums].map(([word, [L, a, b, n]]) => [word, rgbToHex(oklabToRgb({ L: L / n, a: a / n, b: b / n })).slice(1).toLowerCase()]));
 }
 
+const NOT_LOOKS = new Set(['unsaturated', 'saturated', 'greyish', 'grey', 'almost', 'fairly', 'rather', 'very']); // technical, not whimsy
+const ROOMY = /^[a-z]{4,10}$/;
+
+/** What the colors of each cell of the GRID look like: its middle color's best few single words, by cell (see lookCell). */
+function looks() {
+  const cd = new ColorDescription('#000000');
+  const out = {};
+  const chromas = [0.02, 0.08, 0.16];
+  for (let c = 0; c < chromas.length; c++) for (let l = 0; l < GRID.lights; l++) for (let h = 0; h < (c ? GRID.hues : 1); h++) {
+    const hex = rgbToHex(oklchToRgb({ L: (l + 0.5) / GRID.lights, C: chromas[c], h: (h + 0.5) * (360 / GRID.hues) }));
+    const cell = lookCell(hex);
+    cd.color = hex;
+    const nouns = new Set(cd.nouns);
+    const picked = cd.descriptiveWords.filter((w) => ROOMY.test(w) && !NOT_LOOKS.has(w) && !nouns.has(w) && !w.endsWith('ish')).slice(0, 8);
+    if (picked.length) out[cell] = picked.join(',');
+  }
+  return out;
+}
+
 const words = (list) => [...new Set(list.filter((w) => DRAW.test(w)))].join(',');
-const out = { themes: {}, moods: {}, colors: {} };
+const out = { themes: {}, moods: {}, colors: {}, looks: looks() };
 const meant = {};
 await each(Object.entries(seeds.themes), async ([name, t]) => { meant[name] = await related(t.seeds.filter((w) => !w.includes(' '))); });
 const spread = new Map();
