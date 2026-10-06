@@ -1,14 +1,17 @@
 import { variations } from './color.js';
-import { extractColors } from './extract.js';
 import { arrange, decide, fit, turnsOnMiddle } from './arrange.js';
+import { choose } from './chooser.js';
+import { extractColors } from './extract.js';
 
-const POOL = 12; // colors of a picture drawn on when a pattern needs the seven to be fitted (arrange.js fit)
+const POOL = 12; // colors of a picture the seven are chosen from
 
 /**
- * Everything about a palette that is settled before anything moves. Every palette gets a temperature
- * pattern and a shade pattern together (arrange.js). A shade pattern that turns needs colors that support
- * it, so those are fitted to it from a larger pool. Then each color keeps whichever of its five
- * candidates makes the order fit its patterns best (decide).
+ * Everything about a palette that is settled before anything moves. The seven are chosen from the
+ * picture's twelve for contrast and company (chooser.js). Every palette gets a temperature pattern and a
+ * shade pattern together (arrange.js). A shade pattern that turns needs colors that support it, so up to two
+ * are fitted to it from the colors left over, never the accent or the value anchors. Then each color keeps
+ * whichever of its five candidates makes the order fit its patterns best (decide). A picture that is answered
+ * exactly keeps its colors exactly: nothing is fitted or nudged.
  * @param {{data: Uint8ClampedArray, width: number, height: number}} pixels
  * @param {() => number} random seeds the extraction and breaks ties, so a fixed one makes the palette repeatable
  * @param {number} chips how many colors a palette holds
@@ -16,14 +19,17 @@ const POOL = 12; // colors of a picture drawn on when a pattern needs the seven 
  *   null when the picture has no opaque pixel
  */
 export function buildPalette(pixels, random = Math.random, chips = 7) {
-  let clusters = extractColors(pixels, chips, undefined, random);
-  if (!clusters.length) return null;
+  const pool = extractColors(pixels, POOL, undefined, random);
+  if (!pool.length) return null;
 
+  const { picks, roles, mode, spare } = choose(pool, chips, random);
+  let clusters = picks;
   let arrangement = arrange(clusters.map((c) => c.hex), random);
-  if (turnsOnMiddle(arrangement.shade)) {
-    ({ colors: clusters, arrangement } = fit(clusters, extractColors(pixels, POOL, undefined, random), arrangement));
+  if (mode !== 'exact' && turnsOnMiddle(arrangement.shade)) {
+    const locked = roles.flatMap((role, i) => (role ? [i] : []));
+    ({ colors: clusters, arrangement } = fit(clusters, spare, arrangement, locked));
   }
-  const candidates = clusters.map((c) => variations(c.hex));
+  const candidates = clusters.map((c) => (mode === 'exact' ? [c.hex] : variations(c.hex)));
   const keep = decide(candidates, arrangement, random);
   const slotOf = []; // cluster index -> slot (0 = bottom row); the arrangement lists the top row first
   arrangement.order.forEach((cluster, row) => { slotOf[cluster] = chips - 1 - row; });

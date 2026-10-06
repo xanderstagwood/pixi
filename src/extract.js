@@ -11,7 +11,7 @@ import { rgbToHex } from './color.js';
  * centroid so far, so the same image can come out slightly different each time, and a small vivid patch
  * still earns its own color because it is far from everything else.
  * @param {{data: Uint8ClampedArray, width: number, height: number}} img
- * @returns {{hex: string, x: number, y: number}[]}
+ * @returns {{hex: string, x: number, y: number, share: number}[]} `share` is the fraction of the opaque pixels each color covers
  */
 export function extractColors({ data, width, height }, k = 7, iterations = 12, random = Math.random) {
   const px = [];
@@ -50,6 +50,9 @@ export function extractColors({ data, width, height }, k = 7, iterations = 12, r
     sums.forEach((s, j) => { if (s[3]) cents[j] = [s[0] / s[3], s[1] / s[3], s[2] / s[3]]; });
   }
 
+  const covered = new Array(cents.length).fill(0);
+  owner.forEach((j) => { covered[j]++; });
+
   return cents.map((c, j) => {
     let bestP = px[0], bestD = Infinity;
     px.forEach((p, i) => {
@@ -62,6 +65,7 @@ export function extractColors({ data, width, height }, k = 7, iterations = 12, r
       hex: rgbToHex({ r: c[0], g: c[1], b: c[2] }),
       x: ((idx % width) + 0.5) / width,
       y: (Math.floor(idx / width) + 0.5) / height,
+      share: covered[j] / px.length,
     };
   });
 }

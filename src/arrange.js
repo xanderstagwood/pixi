@@ -185,9 +185,10 @@ const MIN_GAIN = 0.03; // and only for a clear improvement
  * @param {{hex: string}[]} chosen the seven, as picked from the picture
  * @param {{hex: string}[]} pool more colors of the same picture to draw on
  * @param {{temperature: string, shade: string}} plan the patterns from `arrange`
+ * @param {number[]} locked indexes of `chosen` that must stay, because the palette was built around them
  * @returns {{colors: {hex: string}[], arrangement: {order: number[], temperature: string, shade: string, cost: number}}}
  */
-export function fit(chosen, pool, plan) {
+export function fit(chosen, pool, plan, locked = []) {
   const { temperature, shade } = plan;
   const measure = (colors) => {
     const seen = colors.map((c) => classify(c.hex));
@@ -199,6 +200,7 @@ export function fit(chosen, pool, plan) {
   for (let swaps = 0, pass = 0, improved = true; improved && swaps < MAX_SWAPS && pass < 3; pass++) {
     improved = false;
     for (let j = 0; j < colors.length && swaps < MAX_SWAPS; j++) {
+      if (locked.includes(j)) continue;
       for (const candidate of pool) {
         if (colors.some((c) => c.hex === candidate.hex)) continue;
         const trial = [...colors];
