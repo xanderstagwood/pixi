@@ -24,7 +24,8 @@
   --gray-9: #323130; /* the resting color of every button icon */
   --gray-11: #252423;
   --gray-12: #201F1E;
-  --gray-13: #000000;
+  --gray-13: #1B1A19;
+  --ground: #000000; /* between bloxels, mirrors GROUND in src/color.js: the page goes to it while the bloxel grid is on stage */
   --gray-12-hit: #272624; /* gray-12 a little brighter (color.js brighter(), strength 1.6): the light hit on the corner tags */
   --accent: #BE1425;
 
@@ -42,6 +43,7 @@ html, body { height: 100%; overflow: hidden; overscroll-behavior: none; touch-ac
 
 body {
   background: var(--gray-13);
+  transition: background-color var(--morph) var(--ease);
   color: var(--gray-1);
   font-family: 'Stagwood Sprite 64', monospace;
   font-size: calc(16 * var(--px));
@@ -180,7 +182,9 @@ body.dragging .card.add { outline: calc(2 * var(--px)) solid var(--accent); outl
   filter: drop-shadow(0 calc(4 * var(--px)) calc(6 * var(--px)) rgba(0, 0, 0, 0.4));
 }
 #stage-frame[hidden] { display: none; }
-#stage { position: absolute; left: 0; top: 0; overflow: hidden; background: var(--gray-13); }
+#stage { position: absolute; left: 0; top: 0; overflow: hidden; background: var(--ground); }
+/* Black from the moment the window opens until it starts closing onto the card. */
+body[data-status='EXPANDING'], body[data-status='ANALYZING'] { background: var(--ground); }
 #stage canvas { position: absolute; left: 0; top: 0; image-rendering: pixelated; }
 
 /* The image counter, after Sprite's tool tag: a one-block panel hugging the bottom-left corner,

@@ -3,7 +3,7 @@ import { oklchToRgb, rgbToOklab, toOklch } from './oklab.js';
 
 // Pure color math. Colors travel as '#RRGGBB' strings; {r,g,b} is 0-255, hsl is h 0-360, s/l 0-1.
 
-/** The ground between bloxels: pure black, so no bloxel can be darker than it and ring itself with a lighter grid line. Mirrors --gray-13 in style.css. */
+/** The ground between bloxels: pure black, so no bloxel can be darker than it and ring itself with a lighter grid line. Mirrors --ground in style.css. */
 export const GROUND = '#000000';
 
 export const hexToRgb = (hex) => {
