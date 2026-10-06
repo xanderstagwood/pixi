@@ -1,4 +1,4 @@
-import { deltaE } from './oklab.js';
+import { TELLABLE, deltaE } from './oklab.js';
 import { detect, seen } from './scheme.js';
 
 // Which seven of a picture's twelve colors make the palette. The aim is contrast and colors that work together,
@@ -8,7 +8,6 @@ import { detect, seen } from './scheme.js';
 const JND = 0.02; // colors closer than this cannot be told apart, so they count as one
 const FAMILY_GAP = 25; // degrees of hue between one color family and the next: shades of one hue are one color to look at
 const MAX_IN_FAMILY = 3; // chips one color family may take while the picture offers anything else
-const MIN_APART = 0.08; // two chips closer than this are near-twins, so a second one is a wasted chip
 const PURE_BLACK = 0.09; // OKLab lightness below which a color is pure black (about #030303)
 const PURE_WHITE = 0.99; // and above which it is pure white (about #FCFCFC)
 const PURE_SHARE = 0.8; // pure black or white is a chip only when the picture is at least this much of it
@@ -28,17 +27,6 @@ const far = (a, b, lightness = 1) => Math.hypot(lightness * (a.lab.L - b.lab.L),
 
 const sameFamily = (a, b) => (a.C >= CHROMATIC) === (b.C >= CHROMATIC) && (a.C < CHROMATIC || gap(a.h, b.h) < FAMILY_GAP);
 const roomFor = (color, others) => others.filter((o) => sameFamily(color, o)).length < MAX_IN_FAMILY;
-
-/**
- * Whether a color may join `others` without crowding them: its family has room and it is no near-twin of any.
- * What `fit` asks before it swaps a chip, so fitting a pattern cannot undo the spread the chooser made.
- * @param {{hex: string}} color
- * @param {{hex: string}[]} others
- */
-export function joins(color, others) {
-  const c = seen(color), rest = others.map(seen);
-  return roomFor(c, rest) && rest.every((o) => far(c, o) >= MIN_APART);
-}
 
 /** The pool with colors nobody can tell apart merged, the biggest area of each lending its place. */
 function merged(pool) {
@@ -121,13 +109,12 @@ function neighbourhood(families, random) {
  * @param {{hex: string, x: number, y: number, share: number}[]} pool the picture's colors with the share of it each covers
  * @param {number} chips how many to pick
  * @param {() => number} random picks the neighbourhood of a rainbow, so the same rainbow is not always the same palette
- * @returns {{picks: {hex: string, x: number, y: number}[], roles: string[], mode: string, spare: object[]}}
- *   `mode` is 'exact' or the scheme's name; `roles` is parallel to `picks` ('accent', 'hero', 'dark', 'light' or ''),
- *   `spare` the colors not picked
+ * @returns {{picks: {hex: string, x: number, y: number}[], roles: string[], mode: string}}
+ *   `mode` is 'exact' or the scheme's name; `roles` is parallel to `picks` ('accent', 'hero', 'dark', 'light' or '')
  */
 export function choose(pool, chips = 7, random = Math.random) {
   const reps = merged(pool);
-  if (reps.length <= chips) return { picks: exactly(reps, chips), roles: Array(chips).fill(''), mode: 'exact', spare: [] };
+  if (reps.length <= chips) return { picks: exactly(reps, chips), roles: Array(chips).fill(''), mode: 'exact' };
 
   let total = reps.reduce((s, r) => s + r.share, 0) || 1;
   const pure = (c) => c.L < PURE_BLACK || c.L > PURE_WHITE;
@@ -144,7 +131,7 @@ export function choose(pool, chips = 7, random = Math.random) {
   }
 
   const accent = accentOf(colors, total);
-  const hero = colors.filter((c) => c !== accent && c.C >= ACCENT_CHROMA && c.share / total >= SIZE_FLOOR.mild && (!accent || far(c, accent) >= MIN_APART)).sort((a, b) => b.C - a.C)[0];
+  const hero = colors.filter((c) => c !== accent && c.C >= ACCENT_CHROMA && c.share / total >= SIZE_FLOOR.mild && (!accent || far(c, accent) >= TELLABLE)).sort((a, b) => b.C - a.C)[0];
   const dark = colors.reduce((a, c) => (c.L < a.L ? c : a));
   const light = colors.reduce((a, c) => (c.L > a.L ? c : a));
   const picks = [], roles = [];
@@ -173,7 +160,7 @@ export function choose(pool, chips = 7, random = Math.random) {
   for (const key of order) {
     while (owed.get(key) > 0 && picks.length < chips) {
       const mine = rest.filter((c) => group.get(c.hex) === key);
-      const apart = mine.filter((c) => picks.every((p) => far(c, p) >= MIN_APART));
+      const apart = mine.filter((c) => picks.every((p) => far(c, p) >= TELLABLE));
       const same = picks.filter((p) => group.get(p.hex) === key);
       // A group becomes a ramp: each chip is the one farthest, mostly in lightness, from the group's chips so far.
       const ramp = (c) => Math.min(...(same.length ? same : picks).map((p) => far(c, p, RAMP))) + (key === 'neutral' ? 0 : VIVID_PULL * c.C);
@@ -185,11 +172,11 @@ export function choose(pool, chips = 7, random = Math.random) {
   }
   while (picks.length < chips) {
     // What is left over goes to the chip that is no near-twin and whose family has room; then any no near-twin; then whatever.
-    const apart = rest.filter((c) => picks.every((p) => far(c, p) >= MIN_APART));
+    const apart = rest.filter((c) => picks.every((p) => far(c, p) >= TELLABLE));
     const roomy = apart.filter((c) => roomFor(c, picks));
     const from = roomy.length ? roomy : apart.length ? apart : rest;
     join(from.sort((a, b) => Math.min(...picks.map((p) => far(b, p))) - Math.min(...picks.map((p) => far(a, p))))[0]);
   }
   const bare = ({ hex, x, y }) => ({ hex, x, y });
-  return { picks: picks.map(bare), roles, mode: scheme.name, spare: rest.map(bare) };
+  return { picks: picks.map(bare), roles, mode: scheme.name };
 }

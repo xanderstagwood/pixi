@@ -1,5 +1,5 @@
 import { hexToRgb, rgbToHex } from './color.js';
-import { deltaE, oklchToRgb, rgbToOklab, toOklch } from './oklab.js';
+import { TELLABLE, deltaE, oklchToRgb, rgbToOklab, toOklch } from './oklab.js';
 
 // A little nudging so a palette's chips flow together, as a grade over a photograph does. The chips the palette is
 // built around (the hero, the accent, the dark and light anchors) are never touched; the rest lean toward the
@@ -9,7 +9,6 @@ const PULL = 0.5; // share of the way toward the palette's hue a chip is turned
 const REACH = 60; // a hue farther than this from the palette's is another family, and is left alone
 const TINT = 0.015; // chroma a neutral is given: enough to feel the palette's hue, not enough to see a color
 const CHROMATIC = 0.04; // below this a chip is a neutral
-const MIN_APART = 0.06; // a nudge never leaves two chips closer than this (or closer than they were)
 
 const lab = (hex) => rgbToOklab(hexToRgb(hex));
 const lch = (hex) => toOklch(lab(hex));
@@ -41,7 +40,7 @@ export function harmonize(chips) {
     const hex = rgbToHex(oklchToRgb(next));
     const others = out.filter((_, k) => k !== i).map(lab);
     const nearest = (l) => Math.min(...others.map((m) => deltaE(l, m)));
-    if (nearest(lab(hex)) >= Math.min(nearest(lab(c.hex)), MIN_APART)) out[i] = hex;
+    if (nearest(lab(hex)) >= Math.min(nearest(lab(c.hex)), TELLABLE)) out[i] = hex;
   });
   return out;
 }

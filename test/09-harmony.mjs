@@ -33,7 +33,7 @@ const HERO = '#D00806', BROWN = '#A66A3C', BLUE = '#2060C0', GRAY = '#808080';
 }
 
 {
-  const out = harmonize([chip('#5A852C', 'accent'), chip(HERO, 'hero'), chip(BROWN), chip('#8A5947')]);
+  const out = harmonize([chip('#5A852C', 'accent'), chip(HERO, 'hero'), chip(BROWN), chip('#4A2A1A')]);
   assert.equal(out[0], '#5A852C', 'the accent is left exactly as it is');
   assert.ok(gap(lch(out[2]).h, lch(HERO).h) < gap(lch(BROWN).h, lch(HERO).h), 'the accent does not pull the palette toward itself, the rest lean toward the hero');
 }

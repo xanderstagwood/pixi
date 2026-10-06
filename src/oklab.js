@@ -43,6 +43,9 @@ export const fromOklch = ({ L, C, h }) => ({ L, a: C * Math.cos((h * Math.PI) / 
 /** Perceptual distance between two OKLab colors. A just-noticeable difference is about 0.02. */
 export const deltaE = (p, q) => Math.hypot(p.L - q.L, p.a - q.a, p.b - q.b);
 
+/** Two palette chips closer than this are near-twins: easy to mistake for one color, so a wasted chip. */
+export const TELLABLE = 0.08;
+
 /**
  * An OKLCH color as {r,g,b}, keeping its lightness and hue and lowering chroma until it fits in sRGB,
  * rather than letting the clamp bend the hue.

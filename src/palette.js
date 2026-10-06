@@ -1,6 +1,6 @@
 import { variations } from './color.js';
-import { arrange, decide, fit, turnsOnMiddle } from './arrange.js';
-import { choose, joins } from './chooser.js';
+import { arrange, decide } from './arrange.js';
+import { choose } from './chooser.js';
 import { extractColors } from './extract.js';
 import { harmonize } from './harmony.js';
 
@@ -8,13 +8,11 @@ const POOL = 12; // colors of a picture the seven are chosen from
 
 /**
  * Everything about a palette that is settled before anything moves. The seven are chosen from the
- * picture's twelve for contrast and company (chooser.js). Every palette gets a temperature pattern and a
- * shade pattern together (arrange.js). A shade pattern that turns needs colors that support it, so up to two
- * are fitted to it from the colors left over, never the accent, the hero or the value anchors, and never
- * with one that crowds the rest. The rest are nudged a little toward the palette's own hue so they flow
- * together (harmony.js). Then each color keeps
- * whichever of its five candidates makes the order fit its patterns best (decide). A picture that is answered
- * exactly keeps its colors exactly: nothing is fitted or nudged.
+ * picture's twelve for contrast and company (chooser.js). Every palette gets a shade pattern (a clean ramp, dark to
+ * light or light to dark) and a temperature pattern together (arrange.js). The free chips are nudged a little toward
+ * the palette's own hue so they flow together (harmony.js). Then each color keeps whichever of its five candidates
+ * makes the order fit its patterns best, never one that crowds another chip (decide). A picture that is answered
+ * exactly keeps its colors exactly: nothing is nudged.
  * @param {{data: Uint8ClampedArray, width: number, height: number}} pixels
  * @param {() => number} random seeds the extraction and breaks ties, so a fixed one makes the palette repeatable
  * @param {number} chips how many colors a palette holds
@@ -26,13 +24,9 @@ export function buildPalette(pixels, random = Math.random, chips = 7) {
   const pool = extractColors(pixels, POOL, undefined, random).map((c) => ({ ...c, hex: c.vivid }));
   if (!pool.length) return null;
 
-  const { picks, roles, mode, spare } = choose(pool, chips, random);
+  const { picks, roles, mode } = choose(pool, chips, random);
   let clusters = picks;
-  let arrangement = arrange(clusters.map((c) => c.hex), random);
-  if (mode !== 'exact' && turnsOnMiddle(arrangement.shade)) {
-    const locked = roles.flatMap((role, i) => (role ? [i] : []));
-    ({ colors: clusters, arrangement } = fit(clusters, spare, arrangement, locked, joins));
-  }
+  const arrangement = arrange(clusters.map((c) => c.hex), random);
   if (mode !== 'exact') {
     const tuned = harmonize(clusters.map((c, i) => ({ hex: c.hex, role: roles[i] })));
     clusters = clusters.map((c, i) => ({ ...c, hex: tuned[i] }));

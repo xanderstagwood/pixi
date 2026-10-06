@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { crc32 as nodeCrc } from 'node:zlib';
 import { brighter, glint, sequence, mix, variations, hexToRgb } from '../src/color.js';
 import { extractColors } from '../src/extract.js';
-import { arrange, decide, fit, shadeCost, temperatureCost, turnsOnMiddle } from '../src/arrange.js';
+import { arrange, decide, shadeCost, temperatureCost } from '../src/arrange.js';
 import { classify } from '../src/perceive.js';
 import { oklabToRgb, rgbToOklab, toOklch } from '../src/oklab.js';
 import * as f from '../src/export/formats.js';
@@ -69,25 +69,21 @@ assert.equal(classify('#101830').lightness, 'dark');
 assert.equal(classify('#8A8A8A').temperature, 'neutral');
 assert.ok(classify('#948A82').warmth > classify('#82888F').warmth, 'a warm gray reads warmer than a cool gray');
 
-// Pattern costs: a fit costs clearly less than the reverse, and a plain slope is not a peak.
+// Pattern costs: a fit costs clearly less than the reverse.
 const cheaper = (fit, wrong) => wrong - fit > 0.1; // the smoothness part is the same either way, so compare the gap
 assert.ok(cheaper(temperatureCost([0.9, 0.5, 0.1, -0.3, -0.8], 'warm-to-cool'), temperatureCost([0.9, 0.5, 0.1, -0.3, -0.8], 'cool-to-warm')));
 assert.ok(cheaper(shadeCost([0.1, 0.3, 0.5, 0.7, 0.9], 'dark-to-light'), shadeCost([0.1, 0.3, 0.5, 0.7, 0.9], 'light-to-dark')));
-assert.ok(cheaper(shadeCost([0.2, 0.5, 0.9, 0.5, 0.2], 'dark-light-dark'), shadeCost([0.2, 0.5, 0.9, 0.5, 0.2], 'light-dark-light')));
-assert.ok(cheaper(shadeCost([0.9, 0.5, 0.2, 0.5, 0.9], 'light-dark-light'), shadeCost([0.9, 0.5, 0.2, 0.5, 0.9], 'dark-light-dark')));
-assert.ok(shadeCost([0.1, 0.3, 0.5, 0.7, 0.9], 'dark-light-dark') > shadeCost([0.1, 0.3, 0.5, 0.7, 0.9], 'dark-to-light'), 'a plain slope is not a peak');
 // Arranging: every palette gets both patterns, every color placed once, and the order fits what it says.
 const palette = ['#E8552B', '#F2B540', '#2E6FA5', '#1F3A5F', '#8FB8C9', '#B85C38', '#3E2A2A'];
 for (const roll of [0, 0.5, 0.99]) {
   const plan = arrange(palette, () => roll);
   assert.deepEqual([...plan.order].sort(), [0, 1, 2, 3, 4, 5, 6]);
   assert.ok(['warm-to-cool', 'cool-to-warm'].includes(plan.temperature));
-  assert.ok(['dark-to-light', 'light-to-dark', 'dark-light-dark', 'light-dark-light'].includes(plan.shade));
+  assert.ok(['dark-to-light', 'light-to-dark'].includes(plan.shade));
   const seen = plan.order.map((i) => classify(palette[i]));
-  const half = (a) => a.reduce((x, y) => x + y, 0) / a.length;
   const w = seen.map((c) => c.warmth);
-  const lead = half(w.slice(0, 3)) - half(w.slice(-3)); // the top of the stack minus the bottom
-  assert.ok(plan.temperature === 'warm-to-cool' ? lead > 0 : lead < 0, 'the order runs the way its temperature pattern says');
+  const other = plan.temperature === 'warm-to-cool' ? 'cool-to-warm' : 'warm-to-cool';
+  assert.ok(temperatureCost(w, plan.temperature) <= temperatureCost(w, other), 'the temperature pattern named is the one the order fits best');
 }
 // A real palette that lurched: near-black then a lighter indigo at the bottom. Level on temperature, so the
 // gentler gradient wins: the indigo goes above the black.
@@ -97,34 +93,6 @@ for (const roll of [0, 0.3, 0.6, 0.99]) {
   if (plan.temperature !== 'warm-to-cool') continue;
   const rows = plan.order.map((i) => lurching[i]);
   assert.ok(rows.indexOf('#333867') < rows.indexOf('#111521'), `indigo should sit above near-black: ${rows.join(' ')}`);
-}
-// A pattern that turns turns on the middle chip: a peak at the second chip costs more than the same run peaking mid-way.
-assert.ok(shadeCost([0.3, 0.9, 0.7, 0.5, 0.4, 0.3, 0.2], 'dark-light-dark') > shadeCost([0.2, 0.4, 0.6, 0.9, 0.6, 0.4, 0.2], 'dark-light-dark') + 0.1);
-assert.ok(shadeCost([0.8, 0.1, 0.3, 0.5, 0.6, 0.7, 0.8], 'light-dark-light') > shadeCost([0.8, 0.6, 0.4, 0.1, 0.4, 0.6, 0.8], 'light-dark-light') + 0.1);
-// Whatever the palette, whenever the pattern turns the middle chip is the lightest (or darkest) of the seven.
-let seed = 12345;
-const rand01 = () => { seed = (seed * 1664525 + 1013904223) % 4294967296; return seed / 4294967296; };
-const randomHex = () => '#' + [0, 1, 2].map(() => Math.floor(rand01() * 256).toString(16).padStart(2, '0')).join('');
-let turned = 0;
-for (let trial = 0; trial < 150; trial++) {
-  const colors = Array.from({ length: 7 }, randomHex);
-  const plan = arrange(colors, rand01);
-  if (!turnsOnMiddle(plan.shade)) continue;
-  turned++;
-  const shades = plan.order.map((i) => classify(colors[i]).shade);
-  const middle = shades[3];
-  assert.ok(plan.shade === 'dark-light-dark' ? middle === Math.max(...shades) : middle === Math.min(...shades), `${plan.shade}: chip 4 must be the extreme, got ${shades.map((v) => v.toFixed(2))}`);
-}
-assert.ok(turned > 5, 'turning patterns are still chosen sometimes');
-// Fitting: swaps at most two colors and never makes the fit worse.
-const dull = ['#2A2622', '#3A332E', '#4A423A', '#5A5046', '#6A5E52', '#7A6C5E', '#8A7A6A'].map((hex) => ({ hex }));
-const pool = [...dull, { hex: '#E8DCC8' }, { hex: '#0F0D0B' }, { hex: '#C9B99E' }, { hex: '#171310' }];
-for (const shade of ['dark-light-dark', 'light-dark-light']) {
-  const before = arrange(dull.map((c) => c.hex), () => 0);
-  const plan = { ...before, temperature: 'warm-to-cool', shade };
-  const out = fit(dull, pool, plan);
-  assert.ok(out.colors.filter((c, i) => c.hex !== dull[i].hex).length <= 2);
-  assert.ok(out.arrangement.cost <= fit(dull, [], plan).arrangement.cost + 1e-9, 'fitting never makes it worse');
 }
 // The choice of candidate keeps the count and stays in range.
 const cands = palette.map((h) => [h, h, h]);
@@ -259,3 +227,5 @@ import './08-triage.mjs';
 import './09-harmony.mjs';
 import './10-scheme.mjs';
 import './11-compose.mjs';
+import './12-order.mjs';
+import './13-spacing.mjs';
