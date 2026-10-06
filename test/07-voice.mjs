@@ -4,15 +4,18 @@ import assert from 'node:assert/strict';
 import { EVENTS, GOBLIN, LINES, MIXES, SUBJECTS, allLines, createVoice } from '../src/voice.js';
 import { mulberry32 } from './img.mjs';
 
-assert.deepEqual([...EVENTS].sort(), ['ANALYZING', 'EXPANDING', 'REST', 'SHRINKING', 'empty', 'no-photo', 'not-image', 'too-big', 'too-many', 'unreadable'], 'every phase, her resting and every way a drop is turned away has a voice');
+assert.deepEqual([...EVENTS].sort(), ['ANALYZING', 'EXPANDING', 'NAMED', 'REST', 'SHRINKING', 'empty', 'no-photo', 'not-image', 'too-big', 'too-many', 'unreadable'], 'every phase, her resting and every way a drop is turned away has a voice');
 
 const TECH = /\b(algorithm|cluster|k-?means|rule|threshold|accent|pool|extract|rgb|hex|sample|bytes?|mb|error|invalid|unsupported|failed)\b/i;
+// Once a card is named she tells you the name. A line has `{name}` in it, and with the longest name there is it still fits the tag.
+const LONGEST = 'x'.repeat(24);
 const check = (line, where) => {
   assert.ok(line.trim() && line.length <= 40, `"${line}" (${where}) fits the tag`);
   assert.ok(!TECH.test(line), `"${line}" (${where}) talks like magic, not like a machine`);
 };
 for (const event of EVENTS) {
-  const lines = LINES[event];
+  const lines = LINES[event].map((l) => l.replace('{name}', event === 'NAMED' ? LONGEST : ''));
+  if (event === 'NAMED') assert.ok(LINES.NAMED.every((l) => l.includes('{name}')), 'every line she says over a new name says the name');
   assert.ok(lines.length >= 3, `${event} has at least three whole phrases, so it can vary`);
   assert.equal(new Set(lines).size, lines.length, `${event} has no repeated phrase`);
   lines.forEach((l) => check(l, event));
@@ -64,7 +67,7 @@ assert.ok(MIXES.ANALYZING.some((a) => a[0] === 'distracted' && a.includes('by'))
 }
 
 // The mind goblin is who she blames, always, when a drop is turned away: an error, a failure, someone trying to trick her.
-const TURNED_AWAY = EVENTS.filter((e) => !MIXES[e]);
+const TURNED_AWAY = EVENTS.filter((e) => !MIXES[e] && e !== 'NAMED');
 assert.deepEqual([...TURNED_AWAY].sort(), ['empty', 'no-photo', 'not-image', 'too-big', 'too-many', 'unreadable'], 'every way a drop is turned away is blamed on the goblin');
 for (const event of TURNED_AWAY) {
   assert.ok(LINES[event].length >= 4, `${event} has plenty of goblin lines`);

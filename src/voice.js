@@ -11,6 +11,8 @@ export const LINES = {
   EXPANDING: ['pulling back the curtain', 'unrolling the picture', 'having a peek', 'opening the secret door', 'here we go'],
   ANALYZING: ['whispering to the colors', 'counting what glitters', 'bribing the colors', 'reading the tea leaves', 'pretending to concentrate', 'this is going well'],
   SHRINKING: ['tucking it in', 'folding it up small', 'sealing it with a wink', 'one last sparkle', 'nearly there'],
+  // When a card is named she says so; `{name}` is the name, up to 24 characters, so a line leaves the tag room for it.
+  NAMED: ['i call this one {name}', 'meet {name}', 'say hello to {name}', 'it wants to be {name}', 'a spell called {name}', 'christened {name}', 'its name is {name}', '{name}, i think', 'dubbed {name}', 'this is {name}'],
   // When she is not at work she rests, and the rest changes slowly.
   REST: ['doing absolutely nothing', 'resting my wings', 'off duty', 'taking five', 'counting clouds', 'on a very long break', 'listening to the quiet', 'zzz'],
   // A drop that is turned away, an error, a failure or someone trying to trick her, is always the mind goblin's doing.

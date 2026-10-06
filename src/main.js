@@ -82,8 +82,8 @@ const setStatus = (s) => {
   }
   tag.refresh();
 };
-const say = (event) => {
-  remark = voice.line(event);
+const say = (event, name = '') => {
+  remark = voice.line(event).replace('{name}', name);
   tag.refresh();
   clearTimeout(hush);
   hush = setTimeout(() => { remark = ''; tag.refresh(); }, 3500);
@@ -180,7 +180,7 @@ async function analyzeOne(file, last, deadline) {
     signal.throwIfAborted();
     return Promise.race([p, new Promise((_, fail) => signal.addEventListener('abort', () => fail(signal.reason), { once: true }))]);
   };
-  let work;
+  let work, named = ''; // `named`: what the card was called, if Pixi made the name
   try { await until(fontReady); work = await until(load(file)); } catch (e) { session = null; if (!signal.aborted) say(e.reason ?? 'unreadable'); return; }
   const pixels = sample(work);
   const plan = buildPalette(pixels, Math.random, CHIPS);
@@ -248,6 +248,7 @@ async function analyzeOne(file, last, deadline) {
     await play(1);
 
     const palette = { ...defaultName(file, plan.colors), colors: plan.colors, coordinates: plan.coordinates, grid: bloxels.keep(), copied: -1, createdAt: Date.now(), credit: file.credit };
+    if (palette.made) named = palette.name;
     session.locked = true; // the card is made from here on: too late to cancel
     const card = carousel.insert(palette);
     wire(card);
@@ -281,6 +282,7 @@ async function analyzeOne(file, last, deadline) {
   session = null;
   work.width = work.height = 0;
   setStatus('CAROUSEL');
+  if (named && last) say('NAMED', named); // not mid-batch: the next picture is already on its way
 }
 
 /** Fades the analysis screen out to the card UI behind it, with nothing left over. */
