@@ -108,7 +108,7 @@ async function load(file) {
     // Size is known once the header is read; check it before paying to decode a huge picture.
     await new Promise((done, fail) => { img.onload = done; img.onerror = fail; });
     if (img.naturalWidth * img.naturalHeight > MAX_PIXELS) throw Object.assign(new Error('image too large'), { reason: 'too-big' });
-    if (!document.hidden) await img.decode(); // a hidden tab never finishes decoding ahead of time; drawing the image below decodes it anyway
+    await unlessAway(img.decode()); // a hidden tab never finishes decoding ahead of time (nor one that is left meanwhile); drawing the image below decodes it anyway
   } finally { URL.revokeObjectURL(url); }
   const s = Math.min(1, MAX_SIDE / Math.max(img.naturalWidth, img.naturalHeight));
   const work = Object.assign(document.createElement('canvas'), {
