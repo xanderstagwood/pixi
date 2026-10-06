@@ -1,4 +1,4 @@
-import { rand, sleep, unlessAway } from './anim.js';
+import { away, rand, sleep, unlessAway, watchFrames } from './anim.js';
 import { hexToRgb, sequence } from './color.js';
 import { categoryName, numbered } from './credit.js';
 import { createBloxels } from './bloxel.js';
@@ -159,6 +159,11 @@ const defaultName = (file) => (file.category
 
 /** @param {boolean} last no more images are waiting, so the name field may take focus */
 async function analyze(file, last) {
+  const unwatch = watchFrames(); // so a window on another workspace, which gets no frames and no word of it, is told from a busy one
+  try { await analyzeOne(file, last); } finally { unwatch(); }
+}
+
+async function analyzeOne(file, last) {
   if (!idle()) return;
   // Cancel and skip abort `signal`. Every wait below goes through `until`, so an abort lands at once
   // wherever the run has got to, and the catch below fades the screen away without making a card.
@@ -178,7 +183,7 @@ async function analyze(file, last) {
   if (!plan) { session = null; say('empty'); return; }
   const { clusters, candidates, keep, slotOf } = plan;
 
-  if (document.hidden) { // nobody is watching, and a hidden tab stops animation: the work is done without the show, in the show's time
+  if (away()) { // nobody is watching, and a hidden tab stops animation: the work is done without the show, in the show's time
     const seeds = clusters.map((c, i) => ({ hex: candidates[i][keep[i]], x: c.x, y: c.y }));
     const bloxels = createBloxels(document.createElement('canvas'), work, cardCells, seeds);
     const grid = bloxels.keep();
@@ -232,7 +237,7 @@ async function analyze(file, last) {
     await until(Promise.all(clusters.map((_, slot) => sleep(slot * T.lockGap).then(() => stack.lock(slot)))));
     await until(sleep(T.hold));
     scan.clear();
-    if (document.hidden) await pad(); // the show was cut short: the time it takes is not
+    if (away()) await pad(); // the show was cut short: the time it takes is not
 
     const palette = { name: defaultName(file), colors: plan.colors, coordinates: plan.coordinates, grid: bloxels.keep(), copied: -1, createdAt: Date.now(), credit: file.credit };
 

@@ -4,6 +4,29 @@ export const EASE_OUT = 'cubic-bezier(0.22, 1, 0.36, 1)';
 
 const leaving = new Set(); // what is waiting on the tab being left
 let watching = false;
+let stalled = false; // frames have stopped coming though the tab is not hidden: its window is on another workspace, say
+
+/** Whether the show cannot be seen right now: the tab is hidden, or its frames have stopped. */
+export const away = () => document.hidden || stalled;
+
+/**
+ * Notices frames stopping while the tab is not hidden (a window on another workspace gets none, and says nothing),
+ * and then lets go of everything waiting on motion, as a hidden tab does. Call it for as long as motion is awaited;
+ * call the function it returns when done. A busy main thread delays frames too, so a late timer is forgiven.
+ */
+export function watchFrames() {
+  const STALL_MS = 1000;
+  let last = performance.now(), beat = last, live = true;
+  const frame = () => { last = performance.now(); stalled = false; if (live) raf = requestAnimationFrame(frame); };
+  let raf = requestAnimationFrame(frame);
+  const timer = setInterval(() => {
+    const now = performance.now(), late = now - beat > 2500;
+    beat = now;
+    if (late) { last = now; return; }
+    if (!stalled && now - last > STALL_MS) { stalled = true; [...leaving].forEach((stop) => stop()); }
+  }, 250);
+  return () => { live = false; stalled = false; cancelAnimationFrame(raf); clearInterval(timer); };
+}
 
 /**
  * Settles with `promise`, or with nothing as soon as the tab is hidden (at once if it already is). A
@@ -11,7 +34,7 @@ let watching = false;
  * motion waits on this instead, and a hidden tab runs the work without the show.
  */
 export const unlessAway = (promise) => new Promise((done, fail) => {
-  if (document.hidden) { promise.catch(() => {}); return done(); }
+  if (document.hidden || stalled) { promise.catch(() => {}); return done(); }
   if (!watching) {
     watching = true;
     document.addEventListener('visibilitychange', () => { if (document.hidden) leaving.forEach((stop) => stop()); });
