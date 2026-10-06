@@ -247,3 +247,4 @@ import './18-photos.mjs';
 import './19-scale.mjs';
 import './20-ink.mjs';
 import './21-credit.mjs';
+import './22-gesture.mjs';
