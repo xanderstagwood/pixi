@@ -6,9 +6,9 @@ import { mulberry32 } from './img.mjs';
 
 assert.deepEqual([...EVENTS].sort(), ['ANALYZING', 'EXPANDING', 'SHRINKING', 'empty', 'not-image', 'too-big', 'too-many', 'unreadable'], 'every phase and every way a drop is turned away has a voice');
 
-const TECH = /\b(algorithm|cluster|k-?means|rule|threshold|accent|pool|extract|rgb|hex|sample|pixels?|bytes?|mb|error|invalid|unsupported|failed)\b/i;
+const TECH = /\b(algorithm|cluster|k-?means|rule|threshold|accent|pool|extract|rgb|hex|sample|bytes?|mb|error|invalid|unsupported|failed)\b/i;
 const check = (line, where) => {
-  assert.ok(line.trim() && line.length <= 34, `"${line}" (${where}) fits the tag`);
+  assert.ok(line.trim() && line.length <= 40, `"${line}" (${where}) fits the tag`);
   assert.ok(!TECH.test(line), `"${line}" (${where}) talks like magic, not like a machine`);
 };
 for (const event of EVENTS) {
@@ -18,17 +18,32 @@ for (const event of EVENTS) {
   lines.forEach((l) => check(l, event));
 }
 
-// Mix and match: an action and a subject make a moment of nonsense. Only the phases do it; a turned-away drop gets a phrase.
+// Mix and match: an action, its connector and a subject make a moment of nonsense. Only the phases do it; a turned-away drop gets a goblin.
+// An action is its verb followed by the connectors it likes ('dancing', 'in', 'with'); a verb with none takes its subject directly ('tricking').
 assert.deepEqual(Object.keys(MIXES).sort(), ['ANALYZING', 'EXPANDING', 'SHRINKING'], 'only the phases mix and match');
-assert.ok(SUBJECTS.length >= 8, 'there are plenty of subjects');
+assert.ok(SUBJECTS.length >= 30, 'there are plenty of subjects');
+assert.equal(new Set(SUBJECTS).size, SUBJECTS.length, 'and none twice');
 assert.ok(!SUBJECTS.includes(RARE), 'the mind goblin is not an everyday subject');
 assert.equal(RARE, 'the mind goblin', 'but the mind goblin exists');
 for (const [event, actions] of Object.entries(MIXES)) {
-  assert.ok(actions.length >= 6, `${event} has plenty of actions`);
-  assert.equal(new Set(actions).size, actions.length, `${event} has no repeated action`);
-  for (const action of actions) for (const subject of [...SUBJECTS, RARE]) check(`${action} ${subject}`, `${event} mix`);
+  assert.ok(actions.length >= 12, `${event} has plenty of actions`);
+  assert.equal(new Set(actions.map((a) => a[0])).size, actions.length, `${event} has no repeated verb`);
+  for (const [verb, ...connectors] of actions) {
+    assert.ok(typeof verb === 'string' && verb.trim(), `${event} has a verb`);
+    assert.ok(connectors.every((c) => typeof c === 'string' && c.trim()), `${verb} has real connectors`);
+    for (const connector of connectors.length ? connectors : ['']) {
+      for (const subject of [...SUBJECTS, RARE]) check(`${verb} ${connector ? connector + ' ' : ''}${subject}`, `${event} mix`);
+    }
+  }
 }
-assert.ok(MIXES.ANALYZING.includes('distracted by') && MIXES.ANALYZING.includes('winking at'), 'she can be distracted by, or wink at, anything');
+assert.ok(Object.values(MIXES).flat().filter((a) => a.length > 2).length >= 8, 'a good many actions have a choice of connectors');
+assert.ok(MIXES.ANALYZING.some((a) => a[0] === 'distracted' && a.includes('by')) && MIXES.ANALYZING.some((a) => a[0] === 'winking' && a.includes('at')), 'she can be distracted by, or wink at, anything');
+{
+  const everything = ['EXPANDING', 'ANALYZING', 'SHRINKING'].flatMap(allLines);
+  for (const wanted of ['dancing in the moonlight', 'fluttering against the flowers', 'toiling with the pixels', 'whispering to the lights', 'tricking the colors']) {
+    assert.ok(everything.includes(wanted), `"${wanted}" is one of the things she says`);
+  }
+}
 // The mind goblin is who she blames, always, when a drop is turned away: an error, a failure, someone trying to trick her.
 const TURNED_AWAY = EVENTS.filter((e) => !MIXES[e]);
 assert.deepEqual([...TURNED_AWAY].sort(), ['empty', 'not-image', 'too-big', 'too-many', 'unreadable'], 'every way a drop is turned away is blamed on the goblin');
@@ -56,7 +71,7 @@ assert.deepEqual(allLines('nonsense'), [], 'and has nothing to say');
   const talk = createVoice(mulberry32(11));
   const said = Array.from({ length: 4000 }, () => talk.line('ANALYZING'));
   const share = (f) => said.filter(f).length / said.length;
-  assert.ok(share((l) => !LINES.ANALYZING.includes(l)) > 0.3 && share((l) => !LINES.ANALYZING.includes(l)) < 0.8, 'a good share of what she says is mixed, and a good share is whole phrases');
+  assert.ok(share((l) => !LINES.ANALYZING.includes(l)) > 0.3 && share((l) => !LINES.ANALYZING.includes(l)) < 0.9, 'a good share of what she says is mixed, and a good share is whole phrases');
   assert.ok(share((l) => l.includes(RARE)) > 0.005 && share((l) => l.includes(RARE)) < 0.08, 'the mind goblin is a rare pull');
   assert.ok(said.some((l) => l.includes(RARE)), 'but she does meet him');
 }

@@ -218,6 +218,7 @@ body[data-status='EXPANDING'], body[data-status='ANALYZING'] { background: var(-
   top: 0;
   z-index: 40;
   height: calc(24 * var(--px));
+  max-width: 100%; /* a long line shortens with an ellipsis on a narrow screen */
   display: flex;
   align-items: center;
   background: var(--gray-12);
@@ -232,7 +233,7 @@ body[data-status='EXPANDING'], body[data-status='ANALYZING'] { background: var(-
 #voice.sliding { overflow: hidden; transition: width 150ms ease; }
 #voice .icon { --icon-px: calc(2 * var(--px)); --icon-color: var(--gray-4); margin-left: calc(6 * var(--px)); flex: none; }
 #voice.pulsing .icon { --icon-color: var(--gray-1); animation: nudge-pulse 1.4s ease-in-out infinite; }
-#voice .tag-label { padding: 0 calc(8 * var(--px)) 0 calc(6 * var(--px)); transition: opacity 120ms ease; }
+#voice .tag-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; padding: 0 calc(8 * var(--px)) 0 calc(6 * var(--px)); transition: opacity 120ms ease; }
 /* While Pixi works, three dots follow what she says and twinkle one after another. */
 #voice .tag-dots { display: none; padding-right: calc(8 * var(--px)); }
 #voice.pulsing .tag-dots { display: inline-flex; }
