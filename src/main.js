@@ -3,7 +3,7 @@ import { hexToRgb, sequence } from './color.js';
 import { buildPalette } from './palette.js';
 import { imagesFrom } from './paste.js';
 import { createQueue } from './queue.js';
-import { CHIPS, cardCells, cardPng, chipAt, fitCardCells, layout, paintTwinkle, renderCard, twinkleCells } from './card.js';
+import { CHIPS, cardCells, cardPng, chipAt, layout, paintTwinkle, renderCard, twinkleCells } from './card.js';
 import { clickIntent, createCarousel } from './carousel.js';
 import { holdButton } from './hold.js';
 import { center, unit, watchPixelSnap } from './pixel.js';
@@ -127,9 +127,8 @@ function sample(work, max = 400) {
 
 const paintCard = (card) => renderCard(card.querySelector('canvas'), card.palette, unit().n, { ui: true, dim: !card.classList.contains('focus') });
 
-/** Sizes the card, and the CSS that positions things inside it, for the current viewport. */
+/** Sets the CSS that positions things inside the card. */
 function applyLayout() {
-  fitCardCells();
   const L = layout(), root = document.documentElement.style;
   for (const [name, v] of Object.entries({ cw: L.w, ch: L.h, kw: L.chips.w, sx: L.chips.x, sy: L.chips.y, nx: L.name.x, ny: L.name.y, nw: L.name.w })) {
     root.setProperty(`--${name}`, v);

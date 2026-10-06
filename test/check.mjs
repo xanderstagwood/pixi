@@ -229,3 +229,4 @@ import './14-gradient.mjs';
 import './16-clash.mjs';
 import './17-contrast.mjs';
 import './18-photos.mjs';
+import './19-scale.mjs';

@@ -29,7 +29,7 @@
   --gray-12-hit: #272624; /* gray-12 a little brighter (color.js brighter(), strength 1.6): the light hit on the corner tags */
   --accent: #BE1425;
 
-  /* --cw and --ch (font pixels) are set by main.js's applyLayout from the viewport size. */
+  /* --cw and --ch (font pixels) are set by main.js's applyLayout from the card's layout. */
   --card-w: calc(var(--cw, 320) * var(--px));
   --card-h: calc(var(--ch, 480) * var(--px));
   --gap: calc(24 * var(--px));

@@ -1,5 +1,4 @@
 import { GROUND, brighter, glint, hit, inkFor, mix } from './color.js';
-import { unit } from './pixel.js';
 
 // The finished palette card, drawn straight to a canvas in font-pixel units (see pixel.js)
 // so it is crisp on screen and the very same drawing exports as a PNG at a bigger scale.
@@ -23,23 +22,8 @@ const FOOT_BASE = 11;
 // The Pixi logo, drawn from Sprite's 8x8 icon: the cells that are filled, minus its two empty top rows.
 const PIXI = [[0, 0], [3, 0], [1, 1], [3, 2], [5, 2], [1, 3], [3, 3], [0, 4], [3, 4], [2, 5]];
 
-let cells = { cols: 20, rows: 30 };
-
-/**
- * Sizes the card to the viewport, in whole bloxels (even, so it centers on cell lines):
- * up to 20x30, less on a small screen. Room is left above and below for the buttons, which hang
- * 56 font pixels off either end of the card, so the card and its buttons stay centered as a group.
- */
-export function fitCardCells() {
-  const { css } = unit();
-  const root = document.documentElement;
-  const even = (v, lo, hi) => Math.min(hi, Math.max(lo, Math.floor(v / 2) * 2));
-  cells = {
-    cols: even((root.clientWidth / css - 32) / CELL, 12, 20),
-    rows: even((root.clientHeight / css - 160) / CELL, 24, 30),
-  };
-  return cells;
-}
+// Every card is this many bloxels, whatever the screen: a screen only decides how big a font pixel is drawn (pixel.js).
+const cells = { cols: 20, rows: 30 };
 
 export const cardCells = () => cells;
 
