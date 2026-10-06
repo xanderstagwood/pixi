@@ -3,6 +3,8 @@ import { hexToRgb, sequence } from './color.js';
 import { categoryName } from './credit.js';
 import { buildPalette } from './palette.js';
 import { imagesFrom } from './paste.js';
+import { categoryFor, direction, resist, springBack } from './gesture.js';
+import { createPicker, loadPhotos } from './photos.js';
 import { createQueue } from './queue.js';
 import { CHIPS, cardCells, cardPng, chipAt, layout, paintTwinkle, renderCard, tagAt, twinkleCells } from './card.js';
 import { clickIntent, createCarousel } from './carousel.js';
@@ -337,6 +339,90 @@ const addImages = (files) => {
   batch.add(...take);
 };
 
+/* ---- photos: the button under "new", and the sets it chooses from ---- */
+
+// A photo comes down as a file, like one dropped, with who to credit riding along.
+let pick = null;
+async function photoFile(category) {
+  pick ??= createPicker(await loadPhotos());
+  const photo = pick(category);
+  const response = await fetch(photo.url);
+  if (!response.ok) throw new Error(`photo ${photo.id}: ${response.status}`);
+  const blob = await response.blob();
+  const credit = { artist: photo.artist, artistLink: photo.artistLink, link: photo.link };
+  return Object.assign(new File([blob], `${photo.id}.jpg`, { type: blob.type || 'image/jpeg' }), { category, credit });
+}
+/** One more try with another photo if the first will not come; then the mind goblin gets the blame. */
+async function addPhoto(category) {
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try { addImages([await photoFile(category)]); return; } catch (err) { console.error(err); }
+  }
+  say('no-photo');
+}
+
+const photoButton = carousel.add.querySelector('.add-photo'), photoIcon = photoButton.querySelector('.icon');
+const showIcon = (name) => { photoIcon.className = `icon icon--${name}`; };
+const nudge = (x, y) => { const { css } = unit(); photoIcon.style.transform = x || y ? `translate(${x * css}px, ${y * css}px)` : ''; };
+let choosing = false;
+/** The icon turns into the set's own, fades out, and the photo is fetched; then the lizard steps back in. */
+async function choose(category) {
+  if (choosing) return;
+  choosing = true;
+  showIcon(category);
+  if (!stillMotion()) await unlessAway(photoIcon.animate([{ opacity: 1 }, { opacity: 1, offset: 0.4 }, { opacity: 0 }], { duration: 800, easing: 'steps(8)', fill: 'forwards' }).finished);
+  addPhoto(category);
+  showIcon('lizard');
+  photoIcon.getAnimations().forEach((a) => a.cancel());
+  if (!stillMotion()) photoIcon.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 500, easing: 'steps(6)' });
+  choosing = false;
+}
+
+photoButton.addEventListener('click', (e) => choose(categoryFor({ button: 0, alt: e.altKey })));
+photoButton.addEventListener('mousedown', (e) => { if (e.button === 1) e.preventDefault(); }); // no autoscroll circle
+photoButton.addEventListener('auxclick', (e) => { if (e.button === 1) choose(categoryFor({ button: 1, alt: e.altKey })); });
+photoButton.addEventListener('contextmenu', (e) => { // a long-press on touch is not a right click: the drag is how a phone chooses
+  e.preventDefault();
+  if (!touching) choose(categoryFor({ button: 2, alt: e.altKey }));
+});
+
+// Dragging the button picks by direction on release; the icon follows the pointer, turns into the set's own icon once it
+// has gone far enough, and springs back to the middle when let go.
+photoButton.addEventListener('pointerdown', (e) => {
+  if (e.button !== 0 || e.altKey || choosing) return;
+  const x0 = e.clientX, y0 = e.clientY, { css } = unit();
+  let dragging = false, category = null, shown = { x: 0, y: 0 };
+  photoButton.setPointerCapture(e.pointerId);
+  const move = (ev) => {
+    const dx = (ev.clientX - x0) / css, dy = (ev.clientY - y0) / css;
+    if (!dragging && Math.hypot(dx, dy) < 10) return; // under this it is a click
+    dragging = true;
+    shown = { x: Math.round(resist(dx)), y: Math.round(resist(dy)) };
+    nudge(shown.x, shown.y);
+    const next = direction(dx, dy);
+    if (next !== category) { category = next; showIcon(next ?? 'lizard'); }
+  };
+  const up = async (ev) => {
+    photoButton.removeEventListener('pointermove', move);
+    photoButton.removeEventListener('pointerup', up);
+    photoButton.removeEventListener('pointercancel', up);
+    if (!dragging) return;
+    const swallow = (c) => c.stopPropagation(); // the release is not a click
+    addEventListener('click', swallow, true);
+    setTimeout(() => removeEventListener('click', swallow, true), 100);
+    const chosen = ev.type === 'pointerup' ? category : null;
+    if (stillMotion()) nudge(0, 0);
+    else {
+      const frames = springBack(shown).map((f) => ({ transform: `translate(${f.x * css}px, ${f.y * css}px)` }));
+      await unlessAway(photoIcon.animate(frames, { duration: 700, easing: 'linear' }).finished);
+      nudge(0, 0);
+    }
+    if (chosen) choose(chosen); else showIcon('lizard');
+  };
+  photoButton.addEventListener('pointermove', move);
+  photoButton.addEventListener('pointerup', up);
+  photoButton.addEventListener('pointercancel', up);
+});
+
 const go = (i) => { if (idle()) carousel.focus(i); };
 function dismiss(card, axis) { if (idle()) carousel.remove(card, axis).then(persist); }
 // A narrow screen stacks the cards top to bottom; a wide one lays them out left to right.
@@ -370,7 +456,7 @@ addEventListener('pointerdown', (e) => { touching = e.pointerType !== 'mouse'; }
 addEventListener('contextmenu', (e) => { if (touching) e.preventDefault(); });
 
 track.addEventListener('click', (e) => {
-  if (!idle() || e.target.closest('.dl, .rm, .name')) return;
+  if (!idle() || e.target.closest('.dl, .rm, .name, .add-photo')) return;
   const card = e.target.closest('.card');
   if (!card) return;
   const i = [...track.children].indexOf(card);

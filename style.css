@@ -70,6 +70,11 @@ body {
 }
 /* The wired icons' ink sits at the bottom left of its 8x8 grid. --ink-x/y slide it, in grid cells, to the middle of the box, so
    they have even white space wherever centered. An icon with no offsets (the bird, top left because birds fly) stays where drawn. */
+.icon--lizard { --mask: url(icons/lizard.svg); }
+.icon--crab { --mask: url(icons/crab.svg); }
+.icon--bird { --mask: url(icons/bird.svg); } /* top left on purpose: birds fly */
+.icon--stag { --mask: url(icons/stag.svg); --ink-x: 0.5; }
+.icon--bones { --mask: url(icons/bones.svg); --ink-x: 1.5; --ink-y: -1.5; }
 .icon--new { --mask: url(icons/new.svg); --ink-x: 0.5; --ink-y: -0.5; }
 .icon--export { --mask: url(icons/export.svg); --ink-x: 1; --ink-y: -1; }
 .icon--remove { --mask: url(icons/remove.svg); --ink-x: 1; --ink-y: -1; }
@@ -122,10 +127,13 @@ body.vertical #track {
 .card.drag-ghost { position: fixed; margin: 0; z-index: 50; opacity: 0.9; pointer-events: none; transition: none; }
 body.grabbing, body.grabbing * { cursor: grabbing !important; }
 
-.card.add { display: grid; place-items: center; --icon-color: var(--gray-9); }
-.card.add .icon { --icon-scale: 4; }
-.card.add:hover { background: var(--gray-11); --icon-color: var(--gray-1); }
-body.dragging .card.add { outline: calc(2 * var(--px)) solid var(--accent); outline-offset: calc(-2 * var(--px)); }
+/* The blank card is two buttons with a gap: a picture of your own above, a random photo below. */
+.card.add { display: grid; grid-template-rows: 1fr 1fr; gap: calc(8 * var(--px)); background: none; cursor: default; }
+.add-btn { display: grid; place-items: center; padding: 0; border: 0; background: var(--gray-12); cursor: pointer; --icon-color: var(--gray-9); touch-action: none; }
+.add-btn .icon { --icon-scale: 4; }
+.add-btn:hover, .add-btn:focus-visible { background: var(--gray-11); --icon-color: var(--gray-1); }
+.add-btn:focus-visible { outline: calc(2 * var(--px)) solid var(--accent); outline-offset: calc(-2 * var(--px)); }
+body.dragging .add-new { outline: calc(2 * var(--px)) solid var(--accent); outline-offset: calc(-2 * var(--px)); }
 
 .card canvas { display: block; width: var(--card-w); height: var(--card-h); image-rendering: pixelated; }
 /* The twinkle layer: same size, laid over the card's blocks, and never in the way of a click. */

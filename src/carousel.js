@@ -23,7 +23,7 @@ export function clickIntent({ isAdd, isFocused, onCanvas }) {
 export function createCarousel(track, onFocus = () => {}) {
   const add = document.createElement('div');
   add.className = 'card add';
-  add.innerHTML = icon('new');
+  add.innerHTML = `<button class="add-btn add-new" aria-label="New palette from a picture of your own">${icon('new')}</button><button class="add-btn add-photo" aria-label="New palette from a random lizard photo">${icon('lizard')}</button>`;
   track.append(add);
 
   let index = 0;
