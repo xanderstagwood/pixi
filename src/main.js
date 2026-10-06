@@ -128,7 +128,10 @@ function sample(work, max = 400) {
   return g.getImageData(0, 0, w, h);
 }
 
-const paintCard = (card) => renderCard(card.querySelector('canvas'), card.palette, unit().n, { ui: true, dim: !card.classList.contains('focus') });
+const paintCard = (card) => {
+  const ink = renderCard(card.querySelector('canvas'), card.palette, unit().n, { ui: true, dim: !card.classList.contains('focus') });
+  card.style.setProperty('--caret', ink); // the caret in the name field is the name's own ink
+};
 
 /** Sets the CSS that positions things inside the card. */
 function applyLayout() {

@@ -155,7 +155,7 @@ body.dragging .add-new { outline: calc(2 * var(--px)) solid var(--accent); outli
   border: 0;
   outline: none;
   color: transparent; /* the canvas draws the text; this only supplies the caret and typing */
-  caret-color: var(--gray-1);
+  caret-color: var(--caret, var(--gray-1));
   text-align: left;
   font-family: inherit;
 }

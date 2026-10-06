@@ -6,7 +6,7 @@ const DRAWN = 'ıáéíóúýćńÉàèìòùäëïöüåãõñčěšřžāēī�
 const STROKED = { ł: 'l', Ł: 'L', ø: 'o', Ø: 'O' }; // no accent to strip: these have a stroke through them
 
 const MARGIN = 12; // font pixels from the card's edge, the same as the footer's
-const TOP = 8;
+const TOP = 16; // the line sits in the second row of bloxels from the top, which is 16 tall like the line, with the caps in its middle
 const LINE = 16;
 const GAP = 8; // between the two tags at the least
 

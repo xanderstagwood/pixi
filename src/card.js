@@ -1,4 +1,4 @@
-import { GROUND, brighter, glint, hit, inkFor, mix } from './color.js';
+import { GROUND, brighter, glint, hit, inkFor, inkOver, luminance, mix, rgbToHex } from './color.js';
 import { tagLayout } from './credit.js';
 
 // The finished palette card, drawn straight to a canvas in font-pixel units (see pixel.js)
@@ -13,7 +13,7 @@ export const CHIPS = 7;
 const CHIP = { w: 144, h: 32, pitch: 42 };
 export const CHIP_W = CHIP.w;
 const CHIPS_H = (CHIPS - 1) * CHIP.pitch + CHIP.h;
-const GRAY_5 = '#979693', INK = '#F3F2F1';
+const INK = '#F3F2F1';
 export const CHIP_HIT = 1.6; // a chip's light hit is a bigger step than a bloxel's
 export const EXPORT_SCALE = 8; // a downloaded card is 2560 x 3840
 // A 6px capital centered between the 1px highlight and the 1px shadow sits on this baseline;
@@ -36,7 +36,7 @@ export const cardCells = () => cells;
  */
 export function layout() {
   const w = cells.cols * CELL, h = cells.rows * CELL;
-  const name = { x: 12, y: h - 24, w: 160, h: 16 };
+  const name = { x: 12, y: h - 32, w: 160, h: 16 };
   return { w, h, name, chips: { ...CHIP, x: (w - CHIP.w) / 2, y: (h - CHIPS_H) / 2 - CELL / 2 + Math.round(CELL / 3) } };
 }
 
@@ -78,7 +78,8 @@ export const tagAt = (palette, x, y) => creditTags(palette).find((t) => x >= t.x
  * @param {{grid: {cols: number, rows: number, rgb: Uint8ClampedArray, cx: number, cy: number}, colors: string[], name: string, copied?: number}} palette colors in stack order, bottom row first
  * @param {number} s whole device pixels per font pixel, so every edge and glyph stays crisp
  * @param {{ui?: boolean, dim?: boolean}} opts ui adds on-screen-only hints (the name placeholder); exports leave
- *        them out. dim veils the blocks and chips (a card that is not in the center) but never the name
+ *        them out. dim veils the blocks and chips (a card that is not in the center) but never the text
+ * @returns {string} the ink the name was drawn in, for the caret that types it
  */
 export function renderCard(canvas, palette, s, { ui = false, dim = false } = {}) {
   const L = layout();
@@ -133,36 +134,49 @@ export function renderCard(canvas, palette, s, { ui = false, dim = false } = {})
     g.fillRect(0, 0, canvas.width, canvas.height);
   }
 
-  // The footer: the name at the bottom left, "curated by Pixi" and the logo at the bottom right, both in the
-  // 16px face. Their shadow is soft but heavy (drawn twice) so they separate from light blocks without a hard edge.
-  const soft = (draw) => {
+  // The lines of text over the bloxels: the name at the bottom left, "curated by Pixi" and the logo at the bottom
+  // right, and for a photo the credit tags along the top, all in the 16px face. Each takes its ink from the bloxels
+  // behind it (inkOver): dark over light ones, light over dark, with a little of their color, so it reads and still
+  // belongs. A soft halo of the opposite tone (drawn twice) lifts it off a busy patch without a hard edge.
+  g.font = `${16 * s}px "Stagwood Sprite 64", monospace`;
+  const behind = (x, y, w, h) => {
+    const out = [];
+    for (let r = Math.floor(y / CELL); r <= Math.floor((y + h - 1) / CELL); r++) {
+      for (let c = Math.floor(x / CELL); c <= Math.floor((x + w - 1) / CELL); c++) {
+        const i = gridIndex(grid, first, c, r);
+        out.push(rgbToHex({ r: grid.rgb[i], g: grid.rgb[i + 1], b: grid.rgb[i + 2] }));
+      }
+    }
+    return out;
+  };
+  const write = (draw, x, y, w, alpha = 1) => {
+    const ink = inkOver(behind(x, y, w, 16));
     g.save();
-    g.shadowColor = 'rgba(0, 0, 0, 0.85)';
+    g.globalAlpha = alpha;
+    g.shadowColor = luminance(ink) > 0.5 ? 'rgba(0, 0, 0, 0.85)' : 'rgba(255, 255, 255, 0.6)';
     g.shadowBlur = 6 * s;
     g.shadowOffsetY = 2 * s;
+    g.fillStyle = ink;
     draw();
     draw();
     g.restore();
+    return ink;
   };
-  g.font = `${16 * s}px "Stagwood Sprite 64", monospace`;
-  const base = (L.name.y + FOOT_BASE) * s;
+  const width = (text) => g.measureText(text).width / s;
+  const base = (y) => (y + FOOT_BASE) * s;
+
   const label = palette.name || (ui ? 'NAME' : '');
-  if (label) soft(() => { g.fillStyle = palette.name ? INK : GRAY_5; g.fillText(label, L.name.x * s, base); });
+  const nameInk = label ? write(() => g.fillText(label, L.name.x * s, base(L.name.y)), L.name.x, L.name.y, width(label), palette.name ? 1 : 0.6) : INK;
 
-  // The credit: "curated by Pixi" and the logo at the bottom right, beside the name.
-  const edge = (L.w - 12) * s, icon = 6 * s, gap = 4 * s;
-  const words = 'curated by Pixi';
-  soft(() => {
-    g.fillStyle = GRAY_5;
-    g.fillText(words, Math.round(edge - icon - gap - g.measureText(words).width), base);
-    for (const [cx, cy] of PIXI) g.fillRect(edge - icon + cx * s, base - 5 * s + cy * s, s, s); // a 6px icon as tall as a capital, sitting one pixel low
-  });
+  const words = 'curated by Pixi', icon = 6, gap = 4, edge = L.w - 12;
+  const credit = { x: edge - icon - gap - width(words), w: width(words) + gap + icon };
+  write(() => {
+    g.fillText(words, Math.round(credit.x * s), base(L.name.y));
+    for (const [cx, cy] of PIXI) g.fillRect((edge - icon + cx) * s, base(L.name.y) - 5 * s + cy * s, s, s); // a 6px icon as tall as a capital, sitting one pixel low
+  }, credit.x, L.name.y, credit.w);
 
-  // A card made from a photo says whose it is, and where it came from, along the top.
-  soft(() => {
-    g.fillStyle = GRAY_5;
-    for (const t of creditTags(palette)) g.fillText(t.text, t.x * s, (t.y + FOOT_BASE) * s);
-  });
+  for (const t of creditTags(palette)) write(() => g.fillText(t.text, t.x * s, base(t.y)), t.x, t.y, t.w);
+  return nameInk;
 }
 
 /**
