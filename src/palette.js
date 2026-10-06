@@ -1,5 +1,6 @@
 import { variations } from './color.js';
 import { decide } from './arrange.js';
+import { calmClash } from './clash.js';
 import { choose } from './chooser.js';
 import { extractColors } from './extract.js';
 import { gradient } from './gradient.js';
@@ -11,7 +12,7 @@ const POOL = 12; // colors of a picture the seven are chosen from
 /**
  * Everything about a palette that is settled before anything moves. The seven are chosen from the
  * picture's twelve for contrast and company (chooser.js). The free chips are nudged a little toward the palette's
- * own hue so they flow together (harmony.js), and the hero's family is tempered so the hero pops (intensity.js). The chips are ordered as one ramp, each color family in a block, and
+ * own hue so they flow together (harmony.js), and the hero's family is tempered so the hero pops (intensity.js), and a vivid red beside a vivid green is faded to one of them (clash.js). The chips are ordered as one ramp, each color family in a block, and
  * their lightness fitted to it (gradient.js). Then each color keeps whichever of its five candidates makes the order
  * fit best, never one that crowds another chip (decide). A picture that is answered exactly keeps its colors
  * exactly: nothing is nudged or fitted.
@@ -30,7 +31,8 @@ export function buildPalette(pixels, random = Math.random, chips = 7) {
   let clusters = picks;
   if (mode !== 'exact') {
     const nudged = harmonize(clusters.map((c, i) => ({ hex: c.hex, role: roles[i] })));
-    const tuned = intensify(nudged.map((hex, i) => ({ hex, role: roles[i] })));
+    const strong = intensify(nudged.map((hex, i) => ({ hex, role: roles[i] })));
+    const tuned = calmClash(strong.map((hex, i) => ({ hex, role: roles[i] })));
     clusters = clusters.map((c, i) => ({ ...c, hex: tuned[i] }));
   }
   // The order, and the chips' lightness fitted to it as one gradient (an exact palette is only ordered).
