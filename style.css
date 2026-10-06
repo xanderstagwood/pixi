@@ -248,7 +248,7 @@ body[data-status="SHRINKING"] #counter .tag-btn { display: none; } /* the card i
 }
 #voice[hidden] { display: none; }
 #voice.sliding { overflow: hidden; transition: width 150ms ease; }
-#voice .icon { --icon-color: var(--gray-4); margin-left: calc(6 * var(--px)); flex: none; }
+#voice .icon { --icon-scale: 1; --icon-color: var(--gray-4); margin-left: calc(6 * var(--px)); flex: none; }
 #voice.pulsing .icon { --icon-color: var(--gray-1); animation: nudge-pulse 1.4s ease-in-out infinite; }
 #voice .tag-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; padding: 0 calc(8 * var(--px)) 0 calc(6 * var(--px)); transition: opacity 120ms ease; }
 /* While Pixi works, three dots follow what she says and twinkle one after another. */
