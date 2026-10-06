@@ -34,8 +34,8 @@ const T = {
 };
 // About how long an analysis takes with its show. The card is made by then whether the show was seen or not, so being
 // away saves no time; someone who comes back before then gets the show from where it would have got to, sped up to end on time.
-const SHOW_MS = 7000;
-const MIN_WAIT = 3000; // someone who comes back with less than this left gets the card now, with the chips filled in
+const SHOW_MS = 13000; // measured: ripple 2 s, scan 7-9 s, lock and hold about 2 s, shrink 0.6 s
+const MIN_WAIT = 1500; // the clock starts before the stage opens, so a larger value left only a second or two of the show to come back in; someone who comes back with less than this left gets the card now, with the chips filled in
 const MAX_SIDE = 2048; // the working copy of a huge image never exceeds this
 // Limits on what is accepted at all, so five huge files cannot strain a phone or a small laptop.
 const MAX_BYTES = 25 * 1024 * 1024; // per file, so at most 225MB in a batch
@@ -250,7 +250,7 @@ async function analyzeOne(file, last, deadline) {
       const left = deadline - performance.now();
       if (left < MIN_WAIT) break; // out of time: the card is made now
       // What is left of the show, in its own time, squeezed to end when the show would have: picked up from where it would be.
-      const remaining = (seen.wave === Infinity ? 0 : T.ripple) + ((clusters.length - seen.landed.size) / clusters.length) * 4000 + (seen.locked ? 0 : 700) + (seen.held ? 0 : T.hold);
+      const remaining = (seen.wave === Infinity ? 0 : T.ripple) + ((clusters.length - seen.landed.size) / clusters.length) * 8000 + (seen.locked ? 0 : 700) + (seen.held ? 0 : T.hold);
       resume();
       await play(Math.min(1, Math.max(0.25, left / Math.max(1, remaining))));
     }
