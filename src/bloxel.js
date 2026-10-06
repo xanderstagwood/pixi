@@ -168,7 +168,7 @@ export function createBloxels(canvas, source, cardCells, seeds = []) {
     /** Let go of the private copy of the image. */
     release() { twinkle.halt(); img.width = img.height = 0; },
     /** Blocks grow out of the dark in a wave from the top-left. */
-    async ripple(ms) {
+    async ripple(ms, signal) {
       done = 0;
       await frames((t) => {
         front = t / ms;
@@ -177,7 +177,7 @@ export function createBloxels(canvas, source, cardCells, seeds = []) {
         if (done < g.count) return false;
         front = Infinity;
         return true;
-      });
+      }, signal);
       if (front === Infinity) return;
       // Cut short because the tab was left: finish the wave at once, so the grid is whole if the tab comes back.
       front = Infinity;

@@ -130,6 +130,15 @@ await new Promise((r) => setTimeout(r, 100));
 assert.deepEqual(seen, ['a:1', 'b:1', 'c:0']);
 assert.equal(most, 1);
 assert.equal(idled, 1);
+// Clearing drops what is waiting and lets the item in progress finish.
+{
+  const done = [];
+  const cq = createQueue(async (x) => { await new Promise((r) => setTimeout(r, 5)); done.push(x); });
+  cq.add('x', 'y', 'z');
+  cq.clear();
+  await new Promise((r) => setTimeout(r, 60));
+  assert.deepEqual(done, ['x'], 'only the item already under way finished');
+}
 
 // Cards kept between visits: the grid survives a round trip, bad data is skipped, a full browser keeps the newest.
 const rgba = Uint8ClampedArray.from({ length: 6 * 4 }, (_, i) => (i % 4 === 3 ? 255 : (i * 37) % 256));

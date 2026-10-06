@@ -1,4 +1,4 @@
-import { rand, sleep } from './anim.js';
+import { rand, sleep, unlessAway } from './anim.js';
 import { hexToRgb, sequence } from './color.js';
 import { buildPalette } from './palette.js';
 import { imagesFrom } from './paste.js';
@@ -149,24 +149,30 @@ const defaultName = (file) => file.name.replace(/\.[^.]*$/, '').trim().slice(0, 
 /** @param {boolean} last no more images are waiting, so the name field may take focus */
 async function analyze(file, last) {
   if (!idle()) return;
-  await fontReady;
+  // Cancel and skip abort `signal`. Every wait below goes through `until`, so an abort lands at once
+  // wherever the run has got to, and the catch below fades the screen away without making a card.
+  session = { scan: null, abort: new AbortController(), locked: false };
+  const { signal } = session.abort;
+  const until = (p) => {
+    signal.throwIfAborted();
+    return Promise.race([p, new Promise((_, fail) => signal.addEventListener('abort', () => fail(signal.reason), { once: true }))]);
+  };
   let work;
-  try { work = await load(file); } catch (e) { say(e.reason ?? 'unreadable'); return; }
+  try { await until(fontReady); work = await until(load(file)); } catch (e) { session = null; if (!signal.aborted) say(e.reason ?? 'unreadable'); return; }
   const pixels = sample(work);
   const plan = buildPalette(pixels, Math.random, CHIPS);
-  if (!plan) { say('empty'); return; }
+  if (!plan) { session = null; say('empty'); return; }
   const { clusters, candidates, keep, slotOf } = plan;
 
-  session = { scan: null };
   try {
     carousel.focus(Infinity, true);
     setStatus('EXPANDING');
-    const bloxels = await stage.open(work, cardRect(), cardCells, clusters.map((c, i) => ({ hex: candidates[i][keep[i]], x: c.x, y: c.y })));
+    const bloxels = await until(stage.open(work, cardRect(), cardCells, clusters.map((c, i) => ({ hex: candidates[i][keep[i]], x: c.x, y: c.y }))));
 
     work.width = work.height = 0; // the source pixels are spent: the bloxel grid holds all that is kept
 
     setStatus('ANALYZING');
-    await bloxels.ripple(T.ripple);
+    await until(bloxels.ripple(T.ripple, signal));
     if (!stillMotion()) bloxels.twinkle.start(); // once the blocks are grown, a few catch the light
 
     const stack = createStack(CHIPS);
@@ -185,18 +191,19 @@ async function analyze(file, last) {
       next: (i) => { const hex = runs[i][taken[i]++]; return { hex, rgb: rgbOf(hex) }; },
       onStop: (i, hex) => { stack.swapTo(slotOf[i], hex); },
       onFinish: (i) => { landing.push(stack.swapTo(slotOf[i], candidates[i][keep[i]])); },
-    }, T);
+    }, { ...T, signal });
     session.scan = scan;
-    await scan.finished;
-    await Promise.all(landing);
+    await until(scan.finished);
+    await until(Promise.all(landing));
     bloxels.twinkle.stop(); // the lit ones fade out well before the window closes
 
-    await Promise.all(clusters.map((_, slot) => sleep(slot * T.lockGap).then(() => stack.lock(slot))));
-    await sleep(T.hold);
+    await until(Promise.all(clusters.map((_, slot) => sleep(slot * T.lockGap).then(() => stack.lock(slot)))));
+    await until(sleep(T.hold));
     scan.clear();
 
     const palette = { name: defaultName(file), colors: plan.colors, coordinates: plan.coordinates, grid: bloxels.keep(), copied: -1, createdAt: Date.now() };
 
+    session.locked = true; // the card is made from here on: too late to cancel
     setStatus('SHRINKING');
     const card = carousel.insert(palette);
     wire(card);
@@ -212,13 +219,24 @@ async function analyze(file, last) {
     // Not on touch (it would raise the keyboard), and not mid-batch (the next image is already coming).
     if (last && matchMedia('(pointer: fine)').matches) card.querySelector('.name').focus({ preventScroll: true });
   } catch (err) {
-    console.error(err);
-    stage.hide();
+    if (signal.aborted) await fadeAway();
+    else { console.error(err); stage.hide(); }
   }
   stage.release();
   session = null;
   work.width = work.height = 0;
   setStatus('CAROUSEL');
+}
+
+/** Fades the analysis screen out to the card UI behind it, with nothing left over. */
+async function fadeAway() {
+  stage.halt();
+  const fades = ['stage-frame', 'stack-host', 'scanners'].map((id) => $(id).animate([{ opacity: 1 }, { opacity: 0 }], { duration: 300, easing: 'steps(4)', fill: 'forwards' }));
+  await unlessAway(Promise.all(fades.map((a) => a.finished)));
+  stage.hide();
+  $('stack-host').replaceChildren();
+  $('scanners').replaceChildren();
+  fades.forEach((a) => a.cancel());
 }
 
 /* ---- finished cards ---- */
@@ -296,12 +314,18 @@ let batchTotal = 0, batchDone = 0;
 const counter = $('counter');
 const showCount = () => {
   counter.hidden = batchTotal === 0;
-  counter.textContent = `${Math.min(batchDone + 1, batchTotal)}/${batchTotal}`;
+  $('count').textContent = `${Math.min(batchDone + 1, batchTotal)}/${batchTotal}`;
+  $('skip').hidden = batchTotal - batchDone < 2; // on the last image, skipping is cancelling
 };
 const batch = createQueue(async (file, left) => {
   showCount();
   try { await analyze(file, left === 0); } finally { batchDone++; showCount(); }
 }, { pause: () => sleep(500), onIdle: () => { batchTotal = batchDone = 0; showCount(); } });
+// Cancel drops the whole batch, skip only the image in progress; neither leaves a card. Once the card
+// is being made (`locked`) there is nothing to cancel, and the buttons are hidden by CSS.
+const skip = () => { if (!session?.locked) session?.abort.abort(); };
+$('skip').addEventListener('click', skip);
+$('cancel').addEventListener('click', () => { batch.clear(); skip(); });
 const addImages = (files) => {
   const { take, refused } = triage(files, { room: Math.max(0, MAX_BATCH - batchTotal), maxBytes: MAX_BYTES });
   if (refused.length) say(refused[0]);

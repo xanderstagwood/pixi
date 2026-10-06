@@ -18,9 +18,10 @@ export function createStage(el, canvas) {
     return `inset(${rect.top}px ${w - rect.right}px ${h - rect.bottom}px ${rect.left}px)`;
   };
 
+  let run = null;
   async function morph(from, to) {
     // fill: both holds the last frame until the inline style catches up, so nothing flickers.
-    const run = el.animate([{ clipPath: from }, { clipPath: to }], { duration: MORPH_MS, easing: EASE, fill: 'both' });
+    run = el.animate([{ clipPath: from }, { clipPath: to }], { duration: MORPH_MS, easing: EASE, fill: 'both' });
     await unlessAway(run.finished);
     el.style.clipPath = to;
     run.cancel();
@@ -59,6 +60,8 @@ export function createStage(el, canvas) {
       await morph(FULL, clipFor(card()));
       el.style.clipPath = clipFor(card());
     },
+    /** Stop a window that is opening where it is; the morph rejects. */
+    halt() { run?.cancel(); },
     hide() { frame.hidden = true; },
   };
 }

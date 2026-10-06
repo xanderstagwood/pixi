@@ -14,10 +14,11 @@ const NEAREST = 4; // a drone picks at random among this many closest matches, s
  * @param {{rgb: number[]}[]} targets per cluster: its color (which bloxels are its own)
  * @param {{next: (i: number) => {rgb: number[], hex: string}, onStop: (i: number, hex: string) => void, onFinish: (i: number) => void}} hooks
  *        `next` is the next color drone i is to hunt; `onStop` fires when it comes to rest on a match for it
- * @param {{stagger: number, roam: [number, number], hits: [number, number]}} opts ms between launches; the latest a drone
- *        roams before it heads home; how many rests it makes first (this sets how long the scan runs)
+ * @param {{stagger: number, roam: [number, number], hits: [number, number], signal?: AbortSignal}} opts ms between launches; the latest a drone
+ *        roams before it heads home; how many rests it makes first (this sets how long the scan runs); `signal` stops the
+ *        drones, and `finished` rejects
  */
-export function runScanners(host, grid, targets, { next, onStop, onFinish }, { stagger, roam, hits }) {
+export function runScanners(host, grid, targets, { next, onStop, onFinish }, { stagger, roam, hits, signal }) {
   // The grid can be laid out again (the viewport changed), so its size is read live and everything
   // derived from it is rebuilt by `refit`.
   let { cols, rows } = grid;
@@ -130,7 +131,7 @@ export function runScanners(host, grid, targets, { next, onStop, onFinish }, { s
       }
     }
     return drones.every((s) => s.done);
-  });
+  }, signal);
 
   return {
     finished,

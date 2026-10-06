@@ -29,13 +29,14 @@ export const shuffle = (list) => {
   return a;
 };
 
-/** Calls fn(elapsedMs, now) each frame until it returns true. Resolves when done, or when the tab is left. */
-export const frames = (fn) => {
+/** Calls fn(elapsedMs, now) each frame until it returns true. Resolves when done, or when the tab is left; rejects if `signal` aborts. */
+export const frames = (fn, signal) => {
   let raf = 0, live = true;
-  const run = new Promise((done) => {
+  const run = new Promise((done, fail) => {
     const t0 = performance.now();
     const tick = (now) => { if (live) { if (fn(now - t0, now) === true) done(); else raf = requestAnimationFrame(tick); } };
     raf = requestAnimationFrame(tick);
+    signal?.addEventListener('abort', () => fail(signal.reason), { once: true });
   });
   // Cut short by a hidden tab, the loop must not wake up later and draw over whatever came next.
   return unlessAway(run).finally(() => { live = false; cancelAnimationFrame(raf); });

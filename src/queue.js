@@ -22,5 +22,7 @@ export function createQueue(work, { pause = () => Promise.resolve(), onError = c
 
   return {
     add(...more) { items.push(...more); drain(); },
+    /** Drop everything still waiting; the item in progress is left to finish. */
+    clear() { items.length = 0; },
   };
 }
