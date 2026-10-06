@@ -2,7 +2,7 @@
 // bird category is spelled the way Pixi spells it, and the two tags are laid out along the top of the card
 // without running into each other.
 import assert from 'node:assert/strict';
-import { categoryName, creditName, ellipsize, numbered, tagLayout } from '../src/credit.js';
+import { categoryName, creditName, ellipsize, tagLayout } from '../src/credit.js';
 
 assert.equal(creditName('Dikaseva'), 'Dikaseva', 'plain names pass through');
 assert.equal(creditName('Jiří Suchý'), 'Jiří Suchý', 'accents the font draws are kept');
@@ -17,14 +17,10 @@ assert.equal(creditName('庆'), 'an Unsplash artist', 'a name with nothing drawa
 assert.equal(creditName('  A   B  '), 'A B', 'spaces are tidied');
 
 assert.equal(categoryName('bird'), 'birb', 'birds are birbs, on purpose');
-assert.equal(categoryName('lizard'), 'lizard');
+assert.equal(categoryName('lizard'), 'lizard, lizard, lizard...', 'lizards go on and on');
+assert.equal(categoryName('crab'), 'all become crab', 'and all become crab');
+assert.ok(['lizard', 'crab', 'bird', 'stag', 'bones'].every((c) => categoryName(c).length <= 30), 'every name fits the name field');
 assert.equal(categoryName('bones'), 'bones');
-
-assert.equal(numbered('lizard', []), 'lizard', 'a name nobody has is kept');
-assert.equal(numbered('lizard', ['lizard']), 'lizard 2', 'the second takes a number');
-assert.equal(numbered('lizard', ['lizard', 'lizard 2']), 'lizard 3', 'and the third the next');
-assert.equal(numbered('lizard', ['lizard', 'lizard 3']), 'lizard 2', 'a number that was freed is used again');
-assert.equal(numbered('birb', ['lizard', 'crab']), 'birb', 'other names do not count');
 
 const width = (s) => s.length * 5;
 assert.equal(ellipsize('short', 100, width), 'short', 'text that fits is left alone');
