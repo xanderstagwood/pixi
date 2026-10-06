@@ -14,7 +14,7 @@ export const CHIP_W = CHIP.w;
 const CHIPS_H = (CHIPS - 1) * CHIP.pitch + CHIP.h;
 const GRAY_5 = '#979693', INK = '#F3F2F1';
 export const CHIP_HIT = 1.6; // a chip's light hit is a bigger step than a bloxel's
-export const EXPORT_SCALE = 4;
+export const EXPORT_SCALE = 8; // a downloaded card is 2560 x 3840
 // A 6px capital centered between the 1px highlight and the 1px shadow sits on this baseline;
 // in the footer's 16px line it sits 11px down.
 const LABEL_BASE = 1 + (CHIP.h - 2 - 6) / 2 + 6;
