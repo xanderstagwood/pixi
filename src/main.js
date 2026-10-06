@@ -394,7 +394,12 @@ function cancelPicks() {
 const photoButton = carousel.add.querySelector('.add-photo'), photoIcon = photoButton.querySelector('.icon');
 const showIcon = (name) => { photoIcon.className = `icon icon--${name}`; };
 const nudge = (x, y) => { const { css } = unit(); photoIcon.style.transform = x || y ? `translate(${x * css}px, ${y * css}px)` : ''; };
-const fade = (from, to, ms) => unlessAway(photoIcon.animate([{ opacity: from }, { opacity: to }], { duration: ms, easing: 'steps(4)', fill: 'forwards' }).finished);
+const fades = new Set(); // the opacity animations in flight, kept apart from the spring so ending one never cuts the other
+const fade = (from, to, ms) => {
+  const a = photoIcon.animate([{ opacity: from }, { opacity: to }], { duration: ms, easing: 'steps(4)', fill: 'forwards' });
+  fades.add(a);
+  return unlessAway(a.finished.catch(() => {}));
+};
 
 let swaps = 0, choice = 0;
 /** The icon fades out, turns into `name` and fades in; a newer swap cuts this one short. Resolves true if it was not cut short. */
@@ -407,7 +412,8 @@ async function swapIcon(name, force = false) {
   showIcon(name);
   if (!stillMotion()) await fade(0, 1, 150);
   if (run !== swaps) return false;
-  photoIcon.getAnimations().forEach((a) => a.cancel());
+  fades.forEach((a) => a.cancel());
+  fades.clear();
   return true;
 }
 /** A choice is made: the pick is queued at once, the icon shows the set's own for a moment, then the lizard comes back. */
@@ -435,7 +441,7 @@ photoButton.addEventListener('pointerdown', (e) => {
   const x0 = e.clientX, y0 = e.clientY, { css } = unit();
   const room = photoButton.getBoundingClientRect(), size = photoIcon.getBoundingClientRect();
   const limit = { x: (room.width - size.width) / 2 / css - 4, y: (room.height - size.height) / 2 / css - 4 }; // font pixels
-  let dragging = false, category = null, shown = { x: 0, y: 0 };
+  let dragging = false, done = false, category = null, shown = { x: 0, y: 0 };
   photoButton.setPointerCapture(e.pointerId);
   const move = (ev) => {
     const dx = (ev.clientX - x0) / css, dy = (ev.clientY - y0) / css;
@@ -446,10 +452,11 @@ photoButton.addEventListener('pointerdown', (e) => {
     const next = direction(dx, dy);
     if (next !== category) { category = next; swapIcon(next ?? 'lizard'); }
   };
+  // Letting go ends the drag wherever the pointer is, even outside the button or the window, and however it ends.
   const up = async (ev) => {
-    photoButton.removeEventListener('pointermove', move);
-    photoButton.removeEventListener('pointerup', up);
-    photoButton.removeEventListener('pointercancel', up);
+    if (done) return;
+    done = true;
+    for (const type of ['pointermove', 'pointerup', 'pointercancel', 'lostpointercapture']) photoButton.removeEventListener(type, type === 'pointermove' ? move : up);
     if (!dragging) return;
     const swallow = (c) => c.stopPropagation(); // the release is not a click
     addEventListener('click', swallow, true);
@@ -457,16 +464,15 @@ photoButton.addEventListener('pointerdown', (e) => {
     const chosen = ev.type === 'pointerup' ? category : null;
     if (chosen) choose(chosen, true); // queued now; the spring plays while the icon holds
     else swapIcon('lizard');
-    if (stillMotion()) nudge(0, 0);
-    else {
-      const frames = springBack(shown).map((f) => ({ transform: `translate(${f.x * css}px, ${f.y * css}px)` }));
-      await unlessAway(photoIcon.animate(frames, { duration: 700, easing: 'linear' }).finished);
-      nudge(0, 0);
-    }
+    if (stillMotion()) { nudge(0, 0); return; }
+    const frames = springBack(shown).map((f) => ({ transform: `translate(${f.x * css}px, ${f.y * css}px)` }));
+    try { await unlessAway(photoIcon.animate(frames, { duration: 700, easing: 'linear' }).finished); } catch { /* cut short */ }
+    nudge(0, 0); // whatever happened to the spring, the icon ends in the middle
   };
   photoButton.addEventListener('pointermove', move);
   photoButton.addEventListener('pointerup', up);
   photoButton.addEventListener('pointercancel', up);
+  photoButton.addEventListener('lostpointercapture', up);
 });
 
 const go = (i) => { if (idle()) carousel.focus(i); };
