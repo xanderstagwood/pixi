@@ -2,6 +2,7 @@ import { variations } from './color.js';
 import { arrange, decide, fit, turnsOnMiddle } from './arrange.js';
 import { choose, joins } from './chooser.js';
 import { extractColors } from './extract.js';
+import { harmonize } from './harmony.js';
 
 const POOL = 12; // colors of a picture the seven are chosen from
 
@@ -10,7 +11,8 @@ const POOL = 12; // colors of a picture the seven are chosen from
  * picture's twelve for contrast and company (chooser.js). Every palette gets a temperature pattern and a
  * shade pattern together (arrange.js). A shade pattern that turns needs colors that support it, so up to two
  * are fitted to it from the colors left over, never the accent, the hero or the value anchors, and never
- * with one that crowds the rest. Then each color keeps
+ * with one that crowds the rest. The rest are nudged a little toward the palette's own hue so they flow
+ * together (harmony.js). Then each color keeps
  * whichever of its five candidates makes the order fit its patterns best (decide). A picture that is answered
  * exactly keeps its colors exactly: nothing is fitted or nudged.
  * @param {{data: Uint8ClampedArray, width: number, height: number}} pixels
@@ -30,6 +32,10 @@ export function buildPalette(pixels, random = Math.random, chips = 7) {
   if (mode !== 'exact' && turnsOnMiddle(arrangement.shade)) {
     const locked = roles.flatMap((role, i) => (role ? [i] : []));
     ({ colors: clusters, arrangement } = fit(clusters, spare, arrangement, locked, joins));
+  }
+  if (mode !== 'exact') {
+    const tuned = harmonize(clusters.map((c, i) => ({ hex: c.hex, role: roles[i] })));
+    clusters = clusters.map((c, i) => ({ ...c, hex: tuned[i] }));
   }
   const candidates = clusters.map((c) => (mode === 'exact' ? [c.hex] : variations(c.hex)));
   const keep = decide(candidates, arrangement, random);
