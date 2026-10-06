@@ -25,6 +25,11 @@ const DRAGONFLY = [
 ].map(([h, s]) => entry(h, s));
 const GREEN = '#4EA02A';
 const withGreen = [...DRAGONFLY, entry(GREEN, 0.006)];
+// The dragonfly's real twelve (400px sample): eight grays, a few small reds, one small green.
+const REAL_DRAGONFLY = [
+  ['#0F1415', 0.644], ['#28312C', 0.08], ['#616268', 0.066], ['#464C4E', 0.066], ['#7C757E', 0.061], ['#432312', 0.025],
+  ['#80310F', 0.016], ['#9E9297', 0.016], ['#7E584A', 0.009], ['#BC3A0C', 0.006], ['#527126', 0.006], ['#B36031', 0.005],
+].map(([h, s]) => entry(h, s));
 const RAINBOW = Array.from({ length: 12 }, (_, i) => entry(hex(i % 2 ? 0.75 : 0.55, 0.14, i * 30), 1 / 12));
 const GRAYS = Array.from({ length: 12 }, (_, i) => entry(hex(0.2 + i * 0.065, 0, 0), 1 / 12));
 
@@ -100,6 +105,17 @@ assert.ok(!choose(RAINBOW, 7, mulberry32(1)).roles.includes('accent'), 'a many-h
   assert.ok(!grays.roles.includes('accent'), 'a gray picture has no accent');
   assert.ok(hexes(grays.picks).every((h) => lch(h).C < 0.01), 'and no color is invented for it');
 }
+
+// The hero: the picture's most eye-catching color is always there, and it is not the accent.
+for (const rng of seeds(20)) {
+  const { picks, roles } = choose(REAL_DRAGONFLY, 7, rng);
+  assert.ok(hexes(picks).includes('#BC3A0C'), 'the vivid red is a chip, every time');
+  assert.equal(roles.indexOf('hero'), hexes(picks).indexOf('#BC3A0C'), 'and it is the hero');
+  assert.equal(roles[hexes(picks).indexOf('#527126')], 'accent', 'with the green still the accent');
+  const grays = picks.filter((p) => lch(p.hex).C < 0.04).length;
+  assert.ok(grays <= 4, 'and the palette is not drowned in grays');
+}
+assert.ok(!choose(GRAYS, 7, mulberry32(1)).roles.includes('hero'), 'a gray picture has no hero');
 
 // Value range: a dark and a light anchor, from what the picture holds.
 {

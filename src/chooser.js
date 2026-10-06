@@ -18,6 +18,7 @@ const ACCENT_GAP = 70; // degrees of hue an accent sits away from the rest
 const NARROW = 0.85; // share of the other colors' area that has to sit within ACCENT_GAP of their hue
 const NEUTRAL_AREA = 0.15; // a picture with no more color than this is a gray picture with a few colors in it
 const SIZE_FLOOR = { vivid: 0.001, mild: 0.003 }; // share of the picture below which a color is a speck
+const VIVID_PULL = 0.5; // how far a color's chroma counts in its favor when a family is gathered, so a palette is not all grays
 const WOBBLE = 3; // cohesion picks at random among this many best fits, so a rainbow does not always give the same family
 
 const gap = (a, b) => Math.abs(((a - b + 540) % 360) - 180);
@@ -83,13 +84,13 @@ function accentOf(colors, total) {
 /**
  * Picks the palette's colors from a picture's pool. Pure black and white are left out unless the picture is
  * mostly that. A picture of `chips` colors or fewer is answered exactly. Otherwise the lightest and the darkest
- * color anchor the value range, an earned accent gets a slot, and the rest are a family (a picture with plenty of
+ * color anchor the value range, the most vivid color (the hero) and an earned accent get slots, and the rest are a family (a picture with plenty of
  * colors) or spread as far apart as they can be (one with few).
  * @param {{hex: string, x: number, y: number, share: number}[]} pool the picture's colors with the share of it each covers
  * @param {number} chips how many to pick
  * @param {() => number} random picks the neighbourhood of a family, so the same rainbow is not always the same palette
  * @returns {{picks: {hex: string, x: number, y: number}[], roles: string[], mode: 'exact' | 'cohesive' | 'varied', spare: object[]}}
- *   `roles` is parallel to `picks` ('accent', 'dark', 'light' or ''), `spare` the colors not picked
+ *   `roles` is parallel to `picks` ('accent', 'hero', 'dark', 'light' or ''), `spare` the colors not picked
  */
 export function choose(pool, chips = 7, random = Math.random) {
   const reps = merged(pool);
@@ -101,10 +102,11 @@ export function choose(pool, chips = 7, random = Math.random) {
   if (colors.length < chips) colors = reps;
 
   const accent = accentOf(colors, total);
+  const hero = colors.filter((c) => c !== accent && c.C >= ACCENT_CHROMA && c.share / total >= SIZE_FLOOR.mild).sort((a, b) => b.C - a.C)[0];
   const dark = colors.reduce((a, c) => (c.L < a.L ? c : a));
   const light = colors.reduce((a, c) => (c.L > a.L ? c : a));
   const picks = [], roles = [];
-  for (const [color, role] of [[accent, 'accent'], [dark, 'dark'], [light, 'light']]) {
+  for (const [color, role] of [[accent, 'accent'], [hero, 'hero'], [dark, 'dark'], [light, 'light']]) {
     if (!color) continue;
     const at = picks.indexOf(color);
     if (at < 0) { picks.push(color); roles.push(role); }
@@ -113,8 +115,11 @@ export function choose(pool, chips = 7, random = Math.random) {
   const mode = richness(colors) >= PLENTIFUL ? 'cohesive' : 'varied';
   const rest = colors.filter((c) => !picks.includes(c));
   while (picks.length < chips) {
+    // A family gathers round the base of the palette, not round the accent: the accent is there to stand out from it.
+    const base = picks.filter((_, i) => roles[i] !== 'accent');
+    const around = base.length ? base : picks;
     const scored = rest
-      .map((c) => ({ c, d: mode === 'cohesive' ? picks.reduce((s, p) => s + far(c, p, 0.5), 0) / picks.length : -Math.min(...picks.map((p) => far(c, p))) }))
+      .map((c) => ({ c, d: mode === 'cohesive' ? around.reduce((s, p) => s + far(c, p, 0.5), 0) / around.length - VIVID_PULL * c.C : -Math.min(...picks.map((p) => far(c, p))) }))
       .sort((a, b) => a.d - b.d);
     const at = mode === 'cohesive' ? Math.floor(random() * Math.min(WOBBLE, scored.length)) : 0;
     picks.push(scored[at].c);
