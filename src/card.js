@@ -1,4 +1,5 @@
 import { GROUND, brighter, glint, hit, inkFor, mix } from './color.js';
+import { tagLayout } from './credit.js';
 
 // The finished palette card, drawn straight to a canvas in font-pixel units (see pixel.js)
 // so it is crisp on screen and the very same drawing exports as a PNG at a bigger scale.
@@ -54,6 +55,23 @@ export function textOffset(text, boxWidth, s, size = 16) {
   measure.font = `${size * s}px "Stagwood Sprite 64", monospace`;
   return Math.round((boxWidth * s - measure.measureText(text).width) / 2);
 }
+
+const widthOf = (text) => { measure.font = '16px "Stagwood Sprite 64", monospace'; return measure.measureText(text).width; };
+
+/**
+ * The credit tags along the top of a card made from a photo, with where each one goes and where it links, in font
+ * pixels. The artist's tag goes to the artist's page, Unsplash's to the photo's.
+ * @returns {{text: string, x: number, y: number, w: number, h: number, href: string}[]} none for a card of one's own picture
+ */
+export function creditTags(palette) {
+  const { credit } = palette;
+  if (!credit) return [];
+  const { artist, unsplash } = tagLayout({ width: layout().w, artist: credit.artist, widthOf });
+  return [{ ...artist, href: credit.artistLink }, { ...unsplash, href: credit.link }];
+}
+
+/** Where a card's tags link to at a point on it (font pixels from its top left), or '' if the point is on none. */
+export const tagAt = (palette, x, y) => creditTags(palette).find((t) => x >= t.x && x < t.x + t.w && y >= t.y && y < t.y + t.h)?.href ?? '';
 
 /**
  * @param {HTMLCanvasElement} canvas resized to the card at `s` device px per font pixel
@@ -115,7 +133,7 @@ export function renderCard(canvas, palette, s, { ui = false, dim = false } = {})
     g.fillRect(0, 0, canvas.width, canvas.height);
   }
 
-  // The footer: the name at the bottom left, "Made with Pixi" and the logo at the bottom right, both in the
+  // The footer: the name at the bottom left, "curated by Pixi" and the logo at the bottom right, both in the
   // 16px face. Their shadow is soft but heavy (drawn twice) so they separate from light blocks without a hard edge.
   const soft = (draw) => {
     g.save();
@@ -131,14 +149,19 @@ export function renderCard(canvas, palette, s, { ui = false, dim = false } = {})
   const label = palette.name || (ui ? 'NAME' : '');
   if (label) soft(() => { g.fillStyle = palette.name ? INK : GRAY_5; g.fillText(label, L.name.x * s, base); });
 
-  // On a narrow card the credit gives up its first words rather than run into the name.
+  // The credit: "curated by Pixi" and the logo at the bottom right, beside the name.
   const edge = (L.w - 12) * s, icon = 6 * s, gap = 4 * s;
-  const nameEnd = L.name.x * s + (label ? g.measureText(label).width : 0);
-  const words = g.measureText('Made with Pixi').width + gap + icon <= edge - nameEnd - 8 * s ? 'Made with Pixi' : 'Pixi';
+  const words = 'curated by Pixi';
   soft(() => {
     g.fillStyle = GRAY_5;
     g.fillText(words, Math.round(edge - icon - gap - g.measureText(words).width), base);
     for (const [cx, cy] of PIXI) g.fillRect(edge - icon + cx * s, base - 5 * s + cy * s, s, s); // a 6px icon as tall as a capital, sitting one pixel low
+  });
+
+  // A card made from a photo says whose it is, and where it came from, along the top.
+  soft(() => {
+    g.fillStyle = GRAY_5;
+    for (const t of creditTags(palette)) g.fillText(t.text, t.x * s, (t.y + FOOT_BASE) * s);
   });
 }
 
@@ -151,13 +174,14 @@ export function twinkleCells(palette) {
   const L = layout();
   const { grid } = palette;
   const first = { c: Math.round(grid.cx - cells.cols / 2), r: Math.round(grid.cy - cells.rows / 2) };
+  const topRows = palette.credit ? 2 : 0; // the credit runs along the top
   const block = { x0: L.chips.x - 8, x1: L.chips.x + L.chips.w + 8, y0: L.chips.y - 4, y1: L.chips.y + (CHIPS - 1) * CHIP.pitch + CHIP.h + 12 };
   const out = [];
   for (let r = 0; r < cells.rows; r++) {
     for (let c = 0; c < cells.cols; c++) {
       const x = c * CELL, y = r * CELL;
       const overChips = x < block.x1 && x + CELL > block.x0 && y < block.y1 && y + CELL > block.y0;
-      if (overChips || y + CELL > L.name.y - 4) continue;
+      if (overChips || y + CELL > L.name.y - 4 || r < topRows) continue;
       const i = gridIndex(grid, first, c, r);
       out.push({ c, r, rgb: [grid.rgb[i], grid.rgb[i + 1], grid.rgb[i + 2]] });
     }
