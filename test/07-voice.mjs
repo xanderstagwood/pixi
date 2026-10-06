@@ -29,7 +29,14 @@ for (const [event, actions] of Object.entries(MIXES)) {
   for (const action of actions) for (const subject of [...SUBJECTS, RARE]) check(`${action} ${subject}`, `${event} mix`);
 }
 assert.ok(MIXES.ANALYZING.includes('distracted by') && MIXES.ANALYZING.includes('winking at'), 'she can be distracted by, or wink at, anything');
-assert.deepEqual(allLines('empty'), LINES.empty, 'a turned-away drop only ever gets its phrases');
+// The mind goblin is who she blames, always, when a drop is turned away: an error, a failure, someone trying to trick her.
+const TURNED_AWAY = EVENTS.filter((e) => !MIXES[e]);
+assert.deepEqual([...TURNED_AWAY].sort(), ['empty', 'not-image', 'too-big', 'too-many', 'unreadable'], 'every way a drop is turned away is blamed on the goblin');
+for (const event of TURNED_AWAY) {
+  assert.ok(LINES[event].length >= 4, `${event} has plenty of goblin lines`);
+  LINES[event].forEach((l) => assert.ok(l.includes(RARE), `"${l}" blames the mind goblin`));
+  assert.deepEqual(allLines(event), LINES[event], `a turned-away drop only ever gets its goblin lines`);
+}
 assert.ok(allLines('ANALYZING').includes('distracted by the mind goblin'), 'and she can be distracted by the mind goblin');
 
 const voice = createVoice(mulberry32(3));
@@ -52,6 +59,13 @@ assert.deepEqual(allLines('nonsense'), [], 'and has nothing to say');
   assert.ok(share((l) => !LINES.ANALYZING.includes(l)) > 0.3 && share((l) => !LINES.ANALYZING.includes(l)) < 0.8, 'a good share of what she says is mixed, and a good share is whole phrases');
   assert.ok(share((l) => l.includes(RARE)) > 0.005 && share((l) => l.includes(RARE)) < 0.08, 'the mind goblin is a rare pull');
   assert.ok(said.some((l) => l.includes(RARE)), 'but she does meet him');
+}
+
+{
+  const talk = createVoice(mulberry32(5));
+  for (const event of TURNED_AWAY) {
+    for (let i = 0; i < 300; i++) assert.ok(talk.line(event).includes(RARE), `${event} always blames the mind goblin`);
+  }
 }
 
 const a = createVoice(mulberry32(7)), b = createVoice(mulberry32(7));

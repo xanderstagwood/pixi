@@ -3,18 +3,21 @@
  * a little snarky, and never explaining how anything is done: magic, not machinery.
  *
  * Two kinds of line. Whole phrases go out just as they are. While she works she also mixes and matches an
- * action with a subject, for whimsical nonsense, and now and then the subject is the mind goblin. Add to any list freely;
+ * action with a subject, for whimsical nonsense, and now and then the subject is the mind goblin. When a drop is
+ * turned away it is always the mind goblin. Add to any list freely;
  * keep a line short enough for the tag, and keep it magic.
  */
 export const LINES = {
   EXPANDING: ['pulling back the curtain', 'unrolling the picture', 'having a peek', 'opening the secret door', 'here we go'],
   ANALYZING: ['whispering to the colors', 'counting what glitters', 'bribing the colors', 'reading the tea leaves', 'pretending to concentrate', 'this is going well'],
   SHRINKING: ['tucking it in', 'folding it up small', 'sealing it with a wink', 'one last sparkle', 'nearly there'],
-  'not-image': ["that's not a picture", 'pixi only eats pictures', 'nice try, that is paperwork', 'i do not eat documents'],
-  'too-big': ["that one's enormous", "my pockets aren't that big", 'too much picture, trim it', 'a smaller one, please'],
-  unreadable: ["can't open that one", 'that file is playing dead', "that picture won't talk to me", 'it seems to be asleep'],
-  'too-many': ['nine at a time, greedy', 'easy, i only have two hands', 'pace yourself, nine is plenty', 'one hand is still full'],
-  empty: ['nothing in there, i looked', 'an invisible picture, bold', 'transparent. very funny', 'a ghost of a picture'],
+  // A drop that is turned away, an error, a failure or someone trying to trick her, is always the mind goblin's doing.
+  // Anyone who knows the joke knows they are being teased for their naughty behavior.
+  'not-image': ['the mind goblin says no paperwork', 'the mind goblin hates paperwork', 'paperwork? the mind goblin sneers', 'nice try, the mind goblin saw that'],
+  'too-big': ['the mind goblin cannot lift that', 'the mind goblin says too heavy', 'the mind goblin sat on that one', 'too big, ask the mind goblin'],
+  unreadable: ['the mind goblin chewed that file', 'the mind goblin scrambled that one', 'blame the mind goblin for that', 'the mind goblin hid that file'],
+  'too-many': ['the mind goblin counts to nine', 'the mind goblin says enough', 'greedy. the mind goblin noticed', 'the mind goblin is watching you'],
+  empty: ['the mind goblin took the picture', 'the mind goblin ate everything', 'the mind goblin stole all of it', 'the mind goblin left nothing'],
 };
 
 /** What she is doing, for the phases that mix and match: each action reads straight into a subject. */
