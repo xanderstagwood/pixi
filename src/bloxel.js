@@ -1,5 +1,5 @@
 import { frames } from './anim.js';
-import { GROUND, glint, hit, liftToGround, rgbToHex } from './color.js';
+import { GROUND, glint, hit, rgbToHex } from './color.js';
 import { plant } from './plant.js';
 import { createTwinkle } from './twinkle.js';
 import { centerDev, unit } from './pixel.js';
@@ -101,16 +101,10 @@ export function createBloxels(canvas, source, cardCells, seeds = []) {
     );
     base.width = base.height = 0;
 
-    const shown = new Uint8ClampedArray(px);
-    for (let i = 0; i < cols * rows; i++) {
-      const { r, g, b } = liftToGround({ r: px[i * 4], g: px[i * 4 + 1], b: px[i * 4 + 2] });
-      shown.set([r, g, b], i * 4);
-    }
-
     const count = cols * rows;
     const dist = Float32Array.from({ length: count }, (_, i) => Math.hypot(i % cols, Math.floor(i / cols)));
     const order = Array.from({ length: count }, (_, i) => i).sort((a, b) => dist[a] - dist[b]);
-    g = { dpr, cell, inset, full, cols, rows, ox, oy, srcX, srcY, srcW, srcH, px, planted, shown, count, dist, order, maxDist: dist[order[count - 1]] || 1, c };
+    g = { dpr, cell, inset, full, cols, rows, ox, oy, srcX, srcY, srcW, srcH, px, planted, count, dist, order, maxDist: dist[order[count - 1]] || 1, c };
   }
 
   const when = (i) => g.dist[i] / g.maxDist; // 0-1 along the sweep
@@ -122,7 +116,7 @@ export function createBloxels(canvas, source, cardCells, seeds = []) {
     ctx.fillRect(x, y, g.cell, g.cell);
     if (size <= 0) return;
     const off = g.inset + Math.floor((g.full - size) / 2);
-    let [r, gr, b] = g.shown.subarray(i * 4, i * 4 + 3);
+    let [r, gr, b] = g.px.subarray(i * 4, i * 4 + 3);
     if (lift) ({ r, g: gr, b } = glint(r, gr, b, lift)); // a twinkling block, and so its light hit, is lit
     ctx.fillStyle = `rgb(${r},${gr},${b})`;
     ctx.fillRect(x + off, y + off, size, size);
@@ -153,7 +147,7 @@ export function createBloxels(canvas, source, cardCells, seeds = []) {
     get origin() { return { x: g.ox / g.dpr, y: g.oy / g.dpr }; },
     rgb: (i) => [g.px[i * 4], g.px[i * 4 + 1], g.px[i * 4 + 2]],
     /** The color cell `i` is drawn in, as hex: what a scanner resting on it is looking at. */
-    color: (i) => rgbToHex({ r: g.shown[i * 4], g: g.shown[i * 4 + 1], b: g.shown[i * 4 + 2] }),
+    color: (i) => rgbToHex({ r: g.px[i * 4], g: g.px[i * 4 + 1], b: g.px[i * 4 + 2] }),
     /** Image-space fractions (0-1) to the cell that holds them, clamped into the grid. */
     cellAt: (fx, fy) => cellIn(g, fx, fy),
     /** The cell seed `i` was planted in: exactly its color. */
@@ -162,7 +156,7 @@ export function createBloxels(canvas, source, cardCells, seeds = []) {
      * What a card keeps of this grid: every cell color as drawn, and which cell the viewport
      * centre (and so the card's centre) sits on. Lets a card of any size cut its own window.
      */
-    keep: () => ({ cols: g.cols, rows: g.rows, rgb: g.shown, cx: (g.c.x - g.ox) / g.cell, cy: (g.c.y - g.oy) / g.cell }),
+    keep: () => ({ cols: g.cols, rows: g.rows, rgb: g.px, cx: (g.c.x - g.ox) / g.cell, cy: (g.c.y - g.oy) / g.cell }),
     /** The viewport changed: lay the grid out again and repaint as far as the wave had got. */
     resize() {
       layout();

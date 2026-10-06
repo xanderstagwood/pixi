@@ -127,7 +127,7 @@ export function renderCard(canvas, palette, s, { ui = false, dim = false } = {})
   palette.colors.forEach((hex, i) => chip(n - 1 - i, hex, palette.copied === i ? 'COPIED' : hex));
 
   if (dim) { // a veil of the ground color, laid before the name so the name is the same color on every card
-    g.fillStyle = 'rgba(27, 26, 25, 0.5)';
+    g.fillStyle = 'rgba(0, 0, 0, 0.5)';
     g.fillRect(0, 0, canvas.width, canvas.height);
   }
 

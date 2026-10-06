@@ -24,7 +24,7 @@
   --gray-9: #323130; /* the resting color of every button icon */
   --gray-11: #252423;
   --gray-12: #201F1E;
-  --gray-13: #1B1A19;
+  --gray-13: #000000;
   --gray-12-hit: #272624; /* gray-12 a little brighter (color.js brighter(), strength 1.6): the light hit on the corner tags */
   --accent: #BE1425;
 

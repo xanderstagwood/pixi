@@ -3,8 +3,8 @@ import { oklchToRgb, rgbToOklab, toOklch } from './oklab.js';
 
 // Pure color math. Colors travel as '#RRGGBB' strings; {r,g,b} is 0-255, hsl is h 0-360, s/l 0-1.
 
-/** The ground between bloxels: the darkest color in the UI (Sprite's --gray-13), almost black but not quite. */
-export const GROUND = '#1B1A19';
+/** The ground between bloxels: pure black, so no bloxel can be darker than it and ring itself with a lighter grid line. Mirrors --gray-13 in style.css. */
+export const GROUND = '#000000';
 
 export const hexToRgb = (hex) => {
   const n = parseInt(hex.slice(1), 16);
@@ -13,18 +13,6 @@ export const hexToRgb = (hex) => {
 
 export const rgbToHex = ({ r, g, b }) =>
   '#' + [r, g, b].map((v) => Math.round(Math.min(255, Math.max(0, v))).toString(16).padStart(2, '0')).join('').toUpperCase();
-
-const GROUND_L = rgbToOklab(hexToRgb(GROUND)).L;
-/**
- * A bloxel darker than the ground would sit inside a lighter grid line and read as a light rim, so it is
- * lifted to the ground's lightness. Hue and chroma stay, so a dark red is still reddish and not gray-black.
- * @param {{r: number, g: number, b: number}} rgb
- * @returns {{r: number, g: number, b: number}} the same color when it is no darker than the ground
- */
-export function liftToGround(rgb) {
-  const { L, C, h } = toOklch(rgbToOklab(rgb));
-  return L < GROUND_L ? oklchToRgb({ L: GROUND_L, C, h }) : rgb;
-}
 
 export function rgbToHsl({ r, g, b }) {
   r /= 255; g /= 255; b /= 255;
