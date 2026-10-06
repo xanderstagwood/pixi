@@ -254,3 +254,4 @@ import './03-paste.mjs';
 import './04-plant.mjs';
 import './05-extract.mjs';
 import './06-chooser.mjs';
+import './07-voice.mjs';
