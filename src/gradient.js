@@ -2,8 +2,8 @@ import { hexToRgb, rgbToHex } from './color.js';
 import { TELLABLE, deltaE, oklchToRgb, rgbToOklab, toOklch } from './oklab.js';
 import { classify } from './perceive.js';
 
-// Orders a palette as one clean ramp and fits the chips' lightness to it. The colored families each sit in one
-// block, so the hues never alternate down the card; the neutrals have no hue to keep together and slot in by
+// Orders a palette as one clean ramp and fits the chips' lightness to it. The hues each sit in one
+// block (a vivid red and a muted tan are two blocks, though their hues chain together), so they never alternate down the card; the neutrals have no hue to keep together and slot in by
 // lightness. Which family goes where is whatever needs the least change of lightness to make a ramp, with
 // warm to cool (or cool to warm) settling a tie. Then each chip's lightness is moved toward the ramp, keeping its
 // hue and chroma. A little of this is faking it: the picture's colors are shaded to read as a gradient.
@@ -12,7 +12,11 @@ const CAP = { free: 0.18, pop: 0.09 }; // the most a chip's lightness may move: 
 const EVEN = 0.5; // how far a chip is also drawn toward even steps between the ends of the ramp
 const TEMP_COST = 0.002; // what one family out of warm-to-cool order costs: only enough to settle a tie
 const STEP = 0.06; // the least a ramp steps in lightness from one chip to the next, or two chips would be twins
-const OVER = 10; // how much worse it is to ask a chip to move further than its cap
+const OVER = 10;
+const CHROMATIC = 0.04; // chroma at which a chip has a hue to keep together; below it, a neutral
+const BLOCK_NEAR = 14; // degrees: a chip this close in hue to a block's leader (its most vivid chip) belongs to that block
+const BLOCK_FAR = 22; // and one closer than this does too, unless its chroma is far from the leader's (a vivid red and a muted tan)
+const BLOCK_CHROMA = 2.2; // how many times more (or less) chroma than the leader counts as far // how much worse it is to ask a chip to move further than its cap
 
 const capOf = (role) => (role === 'dark' || role === 'light' ? 0 : role ? CAP.pop : CAP.free);
 
@@ -33,11 +37,25 @@ function rising(values) {
 const steps = (values) => rising(values.map((v, i) => v - i * STEP)).map((v, i) => v + i * STEP);
 const fitted = (values, ascending) => (ascending ? steps(values) : steps(values.map((v) => -v)).map((v) => -v));
 
+/** Which hue block each chip belongs to: 'neutral', or the index of its block. The most vivid chips lead the blocks. */
+function blocksOf(seen) {
+  const leaders = [], block = seen.map(() => 'neutral');
+  seen.map((c, i) => i).filter((i) => seen[i].C >= CHROMATIC).sort((a, b) => seen[b].C - seen[a].C).forEach((i) => {
+    const same = (l) => {
+      const apart = Math.abs(((seen[l].h - seen[i].h + 540) % 360) - 180);
+      return apart < BLOCK_NEAR || (apart < BLOCK_FAR && seen[l].C / seen[i].C < BLOCK_CHROMA);
+    };
+    let at = leaders.findIndex(same);
+    if (at < 0) { leaders.push(i); at = leaders.length - 1; }
+    block[i] = at;
+  });
+  return block;
+}
+
 const permutations = (list) => (list.length < 2 ? [list] : list.flatMap((x, i) => permutations([...list.slice(0, i), ...list.slice(i + 1)]).map((rest) => [x, ...rest])));
 
 /**
- * @param {{hex: string, group: string | number, role: string}[]} chips `group` is the chip's color family, or 'neutral';
- *   `role` is '' for a free chip, or 'hero', 'accent', 'dark' or 'light'
+ * @param {{hex: string, role: string}[]} chips `role` is '' for a free chip, or 'hero', 'accent', 'dark' or 'light'
  * @param {() => number} random picks which way the ramp and the temperature run
  * @param {boolean} fit false leaves the colors exactly as they are and only orders them
  * @returns {{order: number[], hexes: string[], temperature: string, shade: string}} `order` lists indices of `chips`, top row first;
@@ -47,8 +65,9 @@ export function gradient(chips, random = Math.random, fit = true) {
   const seen = chips.map((c) => ({ ...toOklch(rgbToOklab(hexToRgb(c.hex))), warmth: classify(c.hex).warmth, cap: capOf(c.role) }));
   const ascending = random() < 0.5; // dark to light, from the top row down
   const warmFirst = random() < 0.5;
-  const keys = [...new Set(chips.map((c) => c.group).filter((g) => g !== 'neutral'))];
-  const members = (k) => chips.map((_, i) => i).filter((i) => chips[i].group === k);
+  const block = blocksOf(seen);
+  const keys = [...new Set(block.filter((g) => g !== 'neutral'))];
+  const members = (k) => chips.map((_, i) => i).filter((i) => block[i] === k);
   const byLight = (a, b) => (ascending ? seen[a].L - seen[b].L : seen[b].L - seen[a].L);
   const warmth = (k) => members(k).reduce((s, i) => s + seen[i].warmth, 0) / members(k).length;
 
@@ -58,7 +77,7 @@ export function gradient(chips, random = Math.random, fit = true) {
   };
   const withNeutrals = (base) => {
     const seq = [...base];
-    for (const w of chips.map((_, i) => i).filter((i) => chips[i].group === 'neutral').sort(byLight)) {
+    for (const w of chips.map((_, i) => i).filter((i) => block[i] === 'neutral').sort(byLight)) {
       let best = 0, bestCost = Infinity;
       for (let p = 0; p <= seq.length; p++) { const c = cost([...seq.slice(0, p), w, ...seq.slice(p)]); if (c < bestCost) { bestCost = c; best = p; } }
       seq.splice(best, 0, w);

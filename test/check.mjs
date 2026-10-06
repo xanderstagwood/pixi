@@ -76,7 +76,7 @@ assert.ok(cheaper(temperatureCost([0.9, 0.5, 0.1, -0.3, -0.8], 'warm-to-cool'), 
 assert.ok(cheaper(shadeCost([0.1, 0.3, 0.5, 0.7, 0.9], 'dark-to-light'), shadeCost([0.1, 0.3, 0.5, 0.7, 0.9], 'light-to-dark')));
 // A gradient plan: every color placed once.
 const palette = ['#E8552B', '#F2B540', '#2E6FA5', '#1F3A5F', '#8FB8C9', '#B85C38', '#3E2A2A'];
-const plan = gradient(palette.map((hex, i) => ({ hex, group: i < 2 || i > 4 ? 0 : 1, role: '' })), () => 0.2);
+const plan = gradient(palette.map((hex) => ({ hex, role: '' })), () => 0.2);
 assert.deepEqual([...plan.order].sort(), [0, 1, 2, 3, 4, 5, 6]);
 assert.ok(['warm-to-cool', 'cool-to-warm'].includes(plan.temperature));
 assert.ok(['dark-to-light', 'light-to-dark'].includes(plan.shade));

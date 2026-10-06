@@ -109,29 +109,19 @@ function neighbourhood(families, random) {
  * @param {{hex: string, x: number, y: number, share: number}[]} pool the picture's colors with the share of it each covers
  * @param {number} chips how many to pick
  * @param {() => number} random picks the neighbourhood of a rainbow, so the same rainbow is not always the same palette
- * @returns {{picks: {hex: string, x: number, y: number}[], roles: string[], groups: (string | number)[], mode: string}}
- *   `mode` is 'exact' or the scheme's name; `roles` is parallel to `picks` ('accent', 'hero', 'dark', 'light' or ''),
- *   and so is `groups`: 'neutral' or the index of the pick's hue family
+ * @returns {{picks: {hex: string, x: number, y: number}[], roles: string[], mode: string}}
+ *   `mode` is 'exact' or the scheme's name; `roles` is parallel to `picks` ('accent', 'hero', 'dark', 'light' or '')
  */
 export function choose(pool, chips = 7, random = Math.random) {
   const reps = merged(pool);
-  const scheme = detect(reps); // the whole picture, black and white included: they are what it is made of, even where they cannot be chips
-  // Which group each color belongs to: 'neutral', or the index of its hue family.
-  const groupOf = (families) => {
-    const group = new Map(reps.map((c) => [c.hex, c.C < CHROMATIC ? 'neutral' : -1]));
-    families.forEach((f, i) => f.members.forEach((m) => { if (group.get(m.hex) !== 'neutral' && group.has(m.hex)) group.set(m.hex, i); }));
-    return group;
-  };
-  if (reps.length <= chips) {
-    const picks = exactly(reps, chips), group = groupOf(scheme.families);
-    return { picks, roles: Array(chips).fill(''), groups: picks.map((p) => group.get(p.hex)), mode: 'exact' };
-  }
+  if (reps.length <= chips) return { picks: exactly(reps, chips), roles: Array(chips).fill(''), mode: 'exact' };
 
   let total = reps.reduce((s, r) => s + r.share, 0) || 1;
   const pure = (c) => c.L < PURE_BLACK || c.L > PURE_WHITE;
   let colors = reps.filter((c) => !pure(c) || c.share / total >= PURE_SHARE);
   if (colors.length < chips) colors = reps;
 
+  const scheme = detect(reps); // the whole picture, black and white included: they are what it is made of, even where they cannot be chips
   let families = scheme.families;
   if (families.length > NEIGHBOURHOOD) {
     families = neighbourhood(families, random);
@@ -150,8 +140,9 @@ export function choose(pool, chips = 7, random = Math.random) {
     if (!picks.includes(color)) { picks.push(color); roles.push(role); }
   }
 
-  // How many chips each group is still owed.
-  const group = groupOf(families);
+  // Which group each color belongs to ('neutral', or the index of its hue family), and how many chips each is still owed.
+  const group = new Map(colors.map((c) => [c.hex, c.C < CHROMATIC ? 'neutral' : -1]));
+  families.forEach((f, i) => f.members.forEach((m) => { if (group.get(m.hex) !== 'neutral' && group.has(m.hex)) group.set(m.hex, i); }));
   const recipe = families.length ? RECIPES[scheme.name](families) : [['neutral', chips]];
   const owed = new Map();
   for (const [member, count] of recipe) {
@@ -187,5 +178,5 @@ export function choose(pool, chips = 7, random = Math.random) {
     join(from.sort((a, b) => Math.min(...picks.map((p) => far(b, p))) - Math.min(...picks.map((p) => far(a, p))))[0]);
   }
   const bare = ({ hex, x, y }) => ({ hex, x, y });
-  return { picks: picks.map(bare), roles, groups: picks.map((p) => group.get(p.hex)), mode: scheme.name };
+  return { picks: picks.map(bare), roles, mode: scheme.name };
 }

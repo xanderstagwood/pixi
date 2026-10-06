@@ -25,14 +25,14 @@ export function buildPalette(pixels, random = Math.random, chips = 7) {
   const pool = extractColors(pixels, POOL, undefined, random).map((c) => ({ ...c, hex: c.vivid }));
   if (!pool.length) return null;
 
-  const { picks, roles, groups, mode } = choose(pool, chips, random);
+  const { picks, roles, mode } = choose(pool, chips, random);
   let clusters = picks;
   if (mode !== 'exact') {
     const tuned = harmonize(clusters.map((c, i) => ({ hex: c.hex, role: roles[i] })));
     clusters = clusters.map((c, i) => ({ ...c, hex: tuned[i] }));
   }
   // The order, and the chips' lightness fitted to it as one gradient (an exact palette is only ordered).
-  const plan = gradient(clusters.map((c, i) => ({ hex: c.hex, group: groups[i], role: roles[i] })), random, mode !== 'exact');
+  const plan = gradient(clusters.map((c, i) => ({ hex: c.hex, role: roles[i] })), random, mode !== 'exact');
   clusters = clusters.map((c, i) => ({ ...c, hex: plan.hexes[i] }));
   const arrangement = { order: plan.order, temperature: plan.temperature, shade: plan.shade };
   const candidates = clusters.map((c) => (mode === 'exact' ? [c.hex] : variations(c.hex)));
