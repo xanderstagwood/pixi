@@ -13,7 +13,7 @@ import { createStore } from './store.js';
 import { createTag } from './tag.js';
 import { createTwinkle } from './twinkle.js';
 import { triage } from './triage.js';
-import { LINES, createVoice } from './voice.js';
+import { createVoice } from './voice.js';
 import { attachReorder } from './reorder.js';
 import { runScanners } from './scanners.js';
 import { attachSwipe } from './swipe.js';
@@ -36,19 +36,41 @@ const MAX_PIXELS = 64e6; // 8000 x 8000
 
 const app = { status: 'IDLE' };
 const voice = createVoice();
+const WORKING = ['EXPANDING', 'ANALYZING', 'SHRINKING']; // the statuses she narrates
+const SAY_EVERY = 3400; // ms between the things she says while the colors are chosen: two or three fit the scan
+const LINGER = 2800; // ms the last thing she said stays up once the work is done, so it can be read
+const REST_EVERY = [60000, 120000]; // when she is resting her line changes on the scale of a minute
 let phase = ''; // what Pixi says while a phase runs, chosen once per phase so it does not flicker
 let remark = ''; // what it says about a drop it turned away, for a few seconds
-let hush = 0;
-const tag = createTag($('voice'), () => remark || phase, () => phase !== '');
-const SAY_EVERY = 3400; // ms between the things she says while the colors are chosen: two or three fit the scan
-let sayings = [];
+let resting = ''; // what she is doing when she is not at work
+let lingering = false; // the work is done and its last line is still hanging there
+let hush = 0, restTimer = 0, sayings = [];
+const working = () => WORKING.includes(app.status);
+const tag = createTag($('voice'), () => remark || (working() || lingering ? phase : resting), working);
+const rest = () => {
+  lingering = false;
+  resting = voice.line('REST');
+  tag.refresh();
+  restTimer = setTimeout(rest, rand(...REST_EVERY));
+};
 const setStatus = (s) => {
+  const wasWorking = working();
   app.status = s;
   document.body.dataset.status = s;
   sayings.forEach(clearTimeout);
-  phase = LINES[s] ? voice.line(s) : '';
-  // A long phase gets a few remarks, one after another, not one for all of it.
-  sayings = Array.from({ length: Math.max(0, voice.count(s) - 1) }, (_, i) => setTimeout(() => { phase = voice.line(s); tag.refresh(); }, (i + 1) * SAY_EVERY));
+  if (WORKING.includes(s)) {
+    clearTimeout(restTimer);
+    restTimer = 0;
+    lingering = false;
+    phase = voice.line(s);
+    // A long phase gets a few remarks, one after another, not one for all of it.
+    sayings = Array.from({ length: voice.count(s) - 1 }, (_, i) => setTimeout(() => { phase = voice.line(s); tag.refresh(); }, (i + 1) * SAY_EVERY));
+  } else if (wasWorking) {
+    lingering = true; // let the last thing she said hang there, then she rests
+    restTimer = setTimeout(rest, LINGER);
+  } else if (!restTimer) {
+    restTimer = setTimeout(rest, 1200); // the first rest, soon after the page opens
+  }
   tag.refresh();
 };
 const say = (event) => {

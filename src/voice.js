@@ -11,6 +11,8 @@ export const LINES = {
   EXPANDING: ['pulling back the curtain', 'unrolling the picture', 'having a peek', 'opening the secret door', 'here we go'],
   ANALYZING: ['whispering to the colors', 'counting what glitters', 'bribing the colors', 'reading the tea leaves', 'pretending to concentrate', 'this is going well'],
   SHRINKING: ['tucking it in', 'folding it up small', 'sealing it with a wink', 'one last sparkle', 'nearly there'],
+  // When she is not at work she rests, and the rest changes slowly.
+  REST: ['doing absolutely nothing', 'resting my wings', 'off duty', 'taking five', 'counting clouds', 'on a very long break', 'listening to the quiet', 'zzz'],
   // A drop that is turned away, an error, a failure or someone trying to trick her, is always the mind goblin's doing.
   // Anyone who knows the joke knows they are being teased for their naughty behavior.
   'not-image': ['the mind goblin says no paperwork', 'the mind goblin hates paperwork', 'paperwork? the mind goblin sneers', 'nice try, the mind goblin saw that'],
@@ -41,6 +43,11 @@ export const MIXES = {
     ['reciting', 'to', 'at'], ['composing'], ['murmuring', 'to', 'into'], ['scattering'], ['blowing', 'on', 'across'], ['catching'], ['spelling'],
     ['untangling'], ['sieving'], ['weighing'], ['dusting'], ['interrogating'],
   ],
+  REST: [
+    ['lazing', 'in', 'by', 'under'], ['snoozing', 'in', 'among', 'beside'], ['cuddling'], ['napping', 'in', 'on', 'beside'],
+    ['dozing', 'under', 'beside'], ['basking', 'in'], ['lounging', 'on', 'in'], ['curling up', 'with', 'beside'], ['daydreaming', 'about', 'of'],
+    ['nuzzling'], ['sipping'], ['purring', 'at', 'beside'], ['drifting off with'], ['humming', 'to'], ['stretching', 'toward'],
+  ],
   SHRINKING: [
     ['tucking in'], ['folding up'], ['hushing'], ['lulling'], ['shushing'], ['sealing up'], ['waving off'], ['hiding', 'from'],
     ['saying bye', 'to'], ['bundling up'], ['sprinkling', 'over'], ['dancing', 'in', 'with', 'around'],
@@ -61,6 +68,8 @@ export const SUBJECTS = [
   'a poem', 'the words', 'the air', 'the wind', 'the droplets', 'the dewdrops', 'the raindrops', 'the acorn caps', 'the moth wings',
   'the toadstools', 'the cobwebs', 'a spoonful of dusk', 'the whispers', 'the pollen', 'a thimble of dawn', 'a tiny storm',
   'a bedtime story', 'the secret garden', 'the silver thread', 'the pocket moon',
+  // somewhere soft to rest
+  'the daisies', 'the clover', 'a warm sunbeam', 'a soft cloud', 'the moss', 'the buttercups', 'a patch of sun', 'the lullaby',
   // and a few odd technical things
   'the protons', 'the processor', 'a stray photon', 'the electrons', 'the bandwidth',
 ];
