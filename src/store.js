@@ -1,5 +1,5 @@
 // Palette cards, kept in the browser between visits. Only what a card is drawn from is kept: its
-// name, its seven colors, who to credit for its photo and its bloxel grid (three bytes a cell). The image itself never is.
+// name (and whether Pixi made it), its seven colors, who to credit for its photo and its bloxel grid (three bytes a cell). The image itself never is.
 // localStorage is enough: it is small and simple, and losing it only means the cards are gone.
 
 const KEY = 'pixi.palettes.v1';
@@ -32,6 +32,7 @@ export function unpack(base64, cells) {
 
 const toStored = (p) => ({
   name: p.name,
+  made: p.made === true,
   colors: p.colors,
   createdAt: p.createdAt,
   credit: p.credit,
@@ -50,7 +51,7 @@ function fromStored(o) {
   const rgb = typeof g.rgb === 'string' ? unpack(g.rgb, g.cols * g.rows) : null;
   if (!rgb) return null;
   return {
-    name: o.name.slice(0, 30), colors: o.colors, coordinates: [], copied: -1,
+    name: o.name.slice(0, 30), made: o.made === true, colors: o.colors, coordinates: [], copied: -1,
     createdAt: Number.isFinite(o.createdAt) ? o.createdAt : Date.now(), credit: creditOf(o.credit),
     grid: { cols: g.cols, rows: g.rows, cx: g.cx, cy: g.cy, rgb },
   };

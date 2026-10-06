@@ -151,6 +151,14 @@ createStore(box).save([card('one'), card('two')]);
 const restored = createStore(box).load();
 assert.deepEqual(restored.map((p) => p.name), ['one', 'two']);
 assert.deepEqual([...restored[0].grid.rgb], [...rgba]);
+// A name Pixi made and nobody has typed over can be rolled again, so a card remembers that it is one.
+{
+  const named = fake();
+  createStore(named).save([{ ...card('Velvety Kettle'), made: true }, card('typed')]);
+  const [made, typed] = createStore(named).load();
+  assert.equal(made.made, true, 'a name Pixi made is still one after a round trip');
+  assert.equal(typed.made, false, 'a name someone typed is not');
+}
 // A card made from an Unsplash photo keeps who to credit; a credit that does not point at Unsplash is dropped, the card is not.
 {
   const credit = { artist: 'Dikaseva', artistLink: 'https://unsplash.com/@dikaseva?utm_source=pixi&utm_medium=referral', link: 'https://unsplash.com/photos/x-G-H4JusRJlw?utm_source=pixi&utm_medium=referral' };

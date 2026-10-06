@@ -154,10 +154,13 @@ function cardRect() {
   return new DOMRect(c.x - w / 2, c.y - h / 2, w, h);
 }
 
-/** What a fresh card is called: a name made from its colors (numbered if a card already has it), or if the word lists never came, the first 16 characters of the file's name without its extension. */
+/** The names the cards have now. */
+const cardNames = () => [...track.querySelectorAll('.card.palette')].map((c) => c.palette.name);
+
+/** What a fresh card is called: a name made from its colors (numbered if a card already has it), or if the word lists never came, the first 16 characters of the file's name without its extension. `made` says which. */
 function defaultName(file, colors) {
   const made = namePalette(colors);
-  return made ? numbered(made, [...track.querySelectorAll('.card.palette')].map((c) => c.palette.name)) : file.name.replace(/\.[^.]*$/, '').trim().slice(0, 16);
+  return made ? { name: numbered(made, cardNames()), made: true } : { name: file.name.replace(/\.[^.]*$/, '').trim().slice(0, 16), made: false };
 }
 
 /** @param {boolean} last no more images are waiting, so the name field may take focus */
@@ -244,7 +247,7 @@ async function analyzeOne(file, last, deadline) {
     };
     await play(1);
 
-    const palette = { name: defaultName(file, plan.colors), colors: plan.colors, coordinates: plan.coordinates, grid: bloxels.keep(), copied: -1, createdAt: Date.now(), credit: file.credit };
+    const palette = { ...defaultName(file, plan.colors), colors: plan.colors, coordinates: plan.coordinates, grid: bloxels.keep(), copied: -1, createdAt: Date.now(), credit: file.credit };
     session.locked = true; // the card is made from here on: too late to cancel
     const card = carousel.insert(palette);
     wire(card);
@@ -327,7 +330,18 @@ function wire(card) {
   const p = card.palette, name = card.querySelector('.name'), dl = card.querySelector('.dl');
   name.value = p.name;
   card.querySelector('.rm').addEventListener('click', () => dismiss(card, 'Y'));
-  name.addEventListener('input', () => { p.name = name.value; paintCard(card); persistSoon(); });
+  name.addEventListener('input', () => { p.name = name.value; p.made = false; paintCard(card); persistSoon(); });
+  // A name Pixi made is rolled again by a double click, while nobody has typed over it.
+  name.addEventListener('dblclick', () => {
+    if (!p.made) return;
+    const made = namePalette(p.colors);
+    if (!made) return;
+    p.name = numbered(made, cardNames().filter((n) => n !== p.name));
+    name.value = p.name;
+    name.setSelectionRange(name.value.length, name.value.length);
+    paintCard(card);
+    persistSoon();
+  });
   name.addEventListener('keydown', (e) => { if (e.key === 'Enter') name.blur(); });
   holdButton(dl, {
     ms: T.chargeToBurst,
