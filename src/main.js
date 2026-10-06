@@ -1,4 +1,4 @@
-import { rand, resume, returned, skipped, sleep, unlessAway, watchFrames } from './anim.js';
+import { rand, resume, skipped, sleep, unlessAway, watchFrames } from './anim.js';
 import { hexToRgb, sequence } from './color.js';
 import { categoryName, numbered } from './credit.js';
 import { buildPalette } from './palette.js';
@@ -32,10 +32,10 @@ const T = {
   stagger: 140, roam: [7000, 10500], hits: [12, 16], // hits sets the length of the scan; roam is only the safety cap
   chargeToBurst: 1200,
 };
-// About how long an analysis takes with its show. A tab that is away is waited for that long, and the show resumes if
-// the user comes back in time, so nobody can tell the show is only for them.
+// About how long an analysis takes with its show. The card is made by then whether the show was seen or not, so being
+// away saves no time; someone who comes back before then gets the show from where it would have got to, sped up to end on time.
 const SHOW_MS = 7000;
-const REPLAY = 0.35; // how much of its time the show takes when it is played again for someone who was away: quick, but seen
+const MIN_WAIT = 3000; // someone who comes back with less than this left gets the card now, with the chips filled in
 const MAX_SIDE = 2048; // the working copy of a huge image never exceeds this
 // Limits on what is accepted at all, so five huge files cannot strain a phone or a small laptop.
 const MAX_BYTES = 25 * 1024 * 1024; // per file, so at most 225MB in a batch
@@ -159,11 +159,12 @@ const defaultName = (file) => (file.category
 
 /** @param {boolean} last no more images are waiting, so the name field may take focus */
 async function analyze(file, last) {
-  const unwatch = watchFrames(performance.now() + SHOW_MS); // a tab that is away is waited for, up to the show's time
-  try { await analyzeOne(file, last); } finally { unwatch(); }
+  const deadline = performance.now() + SHOW_MS;
+  const unwatch = watchFrames(deadline); // a tab that is away is waited for, up to the show's time
+  try { await analyzeOne(file, last, deadline); } finally { unwatch(); }
 }
 
-async function analyzeOne(file, last) {
+async function analyzeOne(file, last, deadline) {
   if (!idle()) return;
   // Cancel and skip abort `signal`. Every wait below goes through `until`, so an abort lands at once
   // wherever the run has got to, and the catch below fades the screen away without making a card.
@@ -244,12 +245,16 @@ async function analyzeOne(file, last) {
     const card = carousel.insert(palette);
     wire(card);
     paintCard(card);
-    if (skipped()) persist(); // the user was away and may never see it: the card is kept now, and the show is for when they return
-    while (skipped()) { // the show was cut short: the card waits for them, and the show plays again, quickly
-      await until(returned());
+    if (skipped()) persist(); // the user was away and may never see it: the card is kept now
+    while (skipped()) { // the show was cut short, by the user's return or by the time running out
+      const left = deadline - performance.now();
+      if (left < MIN_WAIT) break; // out of time: the card is made now
+      // What is left of the show, in its own time, squeezed to end when the show would have: picked up from where it would be.
+      const remaining = (seen.wave === Infinity ? 0 : T.ripple) + ((clusters.length - seen.landed.size) / clusters.length) * 4000 + (seen.locked ? 0 : 700) + (seen.held ? 0 : T.hold);
       resume();
-      await play(REPLAY);
+      await play(Math.min(1, Math.max(0.25, left / Math.max(1, remaining))));
     }
+    if (skipped() && stack) clusters.forEach((_, i) => stack.swapTo(slotOf[i], candidates[i][keep[i]])); // cut short for good: the chips still show what was kept
     setStatus('SHRINKING');
     await stage.close(cardRect);
     // The window has closed onto the card exactly, and the card is the same blocks and chips in

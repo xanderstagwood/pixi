@@ -12,7 +12,7 @@ import { zip } from '../src/export/zip.js';
 import { createQueue } from '../src/queue.js';
 import { createStore, pack, unpack } from '../src/store.js';
 import { createTwinkle } from '../src/twinkle.js';
-import { frames, returned, skipped, unlessAway, watchFrames } from '../src/anim.js';
+import { frames, skipped, unlessAway, watchFrames } from '../src/anim.js';
 
 assert.equal(mix('#000000', '#FFFFFF', 0.5), '#808080');
 
@@ -232,14 +232,6 @@ globalThis.cancelAnimationFrame ??= clearTimeout;
   await new Promise((r) => setTimeout(r, 400));
   assert.equal(held, true, 'at the deadline its waits let go');
   assert.equal(skipped(), true, 'and it knows it was cut short');
-  let back = false;
-  returned().then(() => { back = true; });
-  await new Promise((r) => setTimeout(r, 20));
-  assert.equal(back, false, 'someone waiting for the tab to return waits while it is away');
-  document.hidden = false;
-  listeners.forEach((f) => f());
-  await new Promise((r) => setTimeout(r, 20));
-  assert.equal(back, true, 'and is told when it is shown');
   stop();
   assert.equal(skipped(), false, 'a finished show leaves nothing behind');
   delete globalThis.document;

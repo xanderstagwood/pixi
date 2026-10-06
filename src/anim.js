@@ -8,17 +8,17 @@ let stalled = false; // frames have stopped coming though the tab is not hidden:
 let hold = 0; // while a show is watched: until when an away tab is still waited for, so the show can resume on its return
 let showing = false; // a show is being watched
 let skipping = false; // the show was cut short: every wait on motion settles at once
-const coming = new Set(); // what is waiting on the tab coming back
+let onBack = null; // what a show does when its tab or frames come back
+let wasAway = false; // the tab was away since the show last had it
 
 const holding = () => performance.now() < hold;
 const cut = () => { if (showing) skipping = true; };
 const give = () => { cut(); [...leaving].forEach((stop) => stop()); };
-const welcome = () => { [...coming].forEach((done) => done()); coming.clear(); };
 function watch() {
   if (watching) return;
   watching = true;
   document.addEventListener('visibilitychange', () => {
-    if (document.hidden) { if (!holding()) give(); } else if (!stalled) welcome();
+    if (document.hidden) { wasAway = true; if (!holding()) give(); } else if (!stalled) onBack?.();
   });
 }
 
@@ -29,21 +29,15 @@ export const skipped = () => skipping;
 export const resume = () => { skipping = false; };
 
 /** Whether the show cannot be seen right now: the tab is hidden, or its frames have stopped. */
-export const away = () => document.hidden || stalled;
-
-/** Resolves when the show can be seen again: at once if it can be now, else when the tab is shown or frames resume. */
-export const returned = () => new Promise((done) => {
-  if (!away()) return done();
-  watch();
-  coming.add(done);
-});
+const away = () => document.hidden || stalled;
 
 /**
  * Watches a show that has until `deadline` (a performance.now() time). A tab that is away, hidden or with its frames
  * stopped (a window on another workspace gets none, and says nothing), is waited for until then, so the show picks up
- * where it was when the user returns, catching up on its own clock. At the deadline the show is cut short: every wait
- * on motion settles at once and the work runs to its end without it (see `skipped`). A busy main thread delays frames
- * too, so a late timer is forgiven. Call the function it returns when the show is over.
+ * where it was. At the deadline, or when the user returns before it, the show is cut short: every wait on motion settles
+ * at once and the work runs on without it (see `skipped`), so whoever runs the show can finish it from where it got to,
+ * to fit the time left. A busy main thread delays frames too, so a late timer is forgiven. Call the function it returns
+ * when the show is over.
  */
 export function watchFrames(deadline) {
   const STALL_MS = 1000;
@@ -51,16 +45,18 @@ export function watchFrames(deadline) {
   hold = deadline;
   showing = true;
   skipping = false;
-  const frame = () => { last = performance.now(); if (stalled) { stalled = false; welcome(); } if (live) raf = requestAnimationFrame(frame); };
+  wasAway = false;
+  onBack = () => { if (wasAway && performance.now() < deadline) give(); wasAway = false; };
+  const frame = () => { last = performance.now(); if (stalled) { stalled = false; onBack(); } if (live) raf = requestAnimationFrame(frame); };
   let raf = requestAnimationFrame(frame);
   const timer = setInterval(() => {
     const now = performance.now(), late = now - beat > 2500;
     beat = now;
     if (late) { last = now; return; }
-    if (!stalled && now - last > STALL_MS) { stalled = true; if (!holding()) give(); }
+    if (!stalled && now - last > STALL_MS) { stalled = true; wasAway = true; if (!holding()) give(); }
   }, 250);
   const due = setTimeout(() => { if (away()) give(); }, Math.max(0, deadline - performance.now()));
-  return () => { live = false; stalled = false; hold = 0; showing = false; skipping = false; cancelAnimationFrame(raf); clearInterval(timer); clearTimeout(due); welcome(); };
+  return () => { live = false; stalled = false; hold = 0; showing = false; skipping = false; onBack = null; cancelAnimationFrame(raf); clearInterval(timer); clearTimeout(due); };
 }
 
 /**
