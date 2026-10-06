@@ -1,6 +1,7 @@
 import { rand, sleep, unlessAway } from './anim.js';
 import { hexToRgb, sequence } from './color.js';
 import { categoryName, numbered } from './credit.js';
+import { createBloxels } from './bloxel.js';
 import { buildPalette } from './palette.js';
 import { imagesFrom } from './paste.js';
 import { categoryFor, direction, resist, springBack } from './gesture.js';
@@ -107,7 +108,7 @@ async function load(file) {
     // Size is known once the header is read; check it before paying to decode a huge picture.
     await new Promise((done, fail) => { img.onload = done; img.onerror = fail; });
     if (img.naturalWidth * img.naturalHeight > MAX_PIXELS) throw Object.assign(new Error('image too large'), { reason: 'too-big' });
-    await img.decode();
+    if (!document.hidden) await img.decode(); // a hidden tab never finishes decoding ahead of time; drawing the image below decodes it anyway
   } finally { URL.revokeObjectURL(url); }
   const s = Math.min(1, MAX_SIDE / Math.max(img.naturalWidth, img.naturalHeight));
   const work = Object.assign(document.createElement('canvas'), {
@@ -170,6 +171,22 @@ async function analyze(file, last) {
   const plan = buildPalette(pixels, Math.random, CHIPS);
   if (!plan) { session = null; say('empty'); return; }
   const { clusters, candidates, keep, slotOf } = plan;
+
+  if (document.hidden) { // nobody is watching, and a hidden tab stops animation: the card is made at once, without the show
+    const seeds = clusters.map((c, i) => ({ hex: candidates[i][keep[i]], x: c.x, y: c.y }));
+    const bloxels = createBloxels(document.createElement('canvas'), work, cardCells, seeds);
+    const grid = bloxels.keep();
+    bloxels.release();
+    work.width = work.height = 0;
+    const card = carousel.insert({ name: defaultName(file), colors: plan.colors, coordinates: plan.coordinates, grid, copied: -1, createdAt: Date.now(), credit: file.credit });
+    wire(card);
+    paintCard(card);
+    card.style.visibility = '';
+    persist();
+    syncTwinkle();
+    session = null;
+    return;
+  }
 
   try {
     carousel.focus(Infinity, true);
