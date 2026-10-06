@@ -1,9 +1,10 @@
 import { rand, sleep, unlessAway } from './anim.js';
 import { hexToRgb, sequence } from './color.js';
+import { categoryName } from './credit.js';
 import { buildPalette } from './palette.js';
 import { imagesFrom } from './paste.js';
 import { createQueue } from './queue.js';
-import { CHIPS, cardCells, cardPng, chipAt, layout, paintTwinkle, renderCard, twinkleCells } from './card.js';
+import { CHIPS, cardCells, cardPng, chipAt, layout, paintTwinkle, renderCard, tagAt, twinkleCells } from './card.js';
 import { clickIntent, createCarousel } from './carousel.js';
 import { holdButton } from './hold.js';
 import { center, unit, watchPixelSnap } from './pixel.js';
@@ -142,8 +143,8 @@ function cardRect() {
   return new DOMRect(c.x - w / 2, c.y - h / 2, w, h);
 }
 
-/** The first 16 characters of the file's name, without its extension: what a fresh card is called. */
-const defaultName = (file) => file.name.replace(/\.[^.]*$/, '').trim().slice(0, 16);
+/** What a fresh card is called: its photo's category, or the first 16 characters of the file's name without its extension. */
+const defaultName = (file) => (file.category ? categoryName(file.category) : file.name.replace(/\.[^.]*$/, '').trim().slice(0, 16));
 
 /** @param {boolean} last no more images are waiting, so the name field may take focus */
 async function analyze(file, last) {
@@ -200,7 +201,7 @@ async function analyze(file, last) {
     await until(sleep(T.hold));
     scan.clear();
 
-    const palette = { name: defaultName(file), colors: plan.colors, coordinates: plan.coordinates, grid: bloxels.keep(), copied: -1, createdAt: Date.now() };
+    const palette = { name: defaultName(file), colors: plan.colors, coordinates: plan.coordinates, grid: bloxels.keep(), copied: -1, createdAt: Date.now(), credit: file.credit };
 
     session.locked = true; // the card is made from here on: too late to cancel
     setStatus('SHRINKING');
@@ -296,6 +297,8 @@ function wire(card) {
 
 function copyChip(card, e) {
   const { css } = unit(), p = card.palette;
+  const href = tagAt(p, e.offsetX / css, e.offsetY / css);
+  if (href) { window.open(href, '_blank', 'noopener'); return; }
   const k = chipAt(e.offsetX / css, e.offsetY / css, p.colors.length);
   if (k < 0) return;
   navigator.clipboard?.writeText(p.colors[k]);
@@ -375,6 +378,12 @@ track.addEventListener('click', (e) => {
   if (intent === 'new') $('file').click();
   else if (intent === 'focus') go(i);
   else if (intent === 'copy') copyChip(card, e);
+});
+
+// The credit tags are links: the pointer says so over them.
+track.addEventListener('pointermove', (e) => {
+  const canvas = e.target.closest?.('.card.focus canvas');
+  if (canvas) canvas.style.cursor = tagAt(canvas.closest('.card').palette, e.offsetX / unit().css, e.offsetY / unit().css) ? 'pointer' : '';
 });
 
 addEventListener('keydown', (e) => {
