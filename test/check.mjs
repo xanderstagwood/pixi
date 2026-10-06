@@ -224,3 +224,4 @@ import './10-scheme.mjs';
 import './11-compose.mjs';
 import './12-order.mjs';
 import './13-spacing.mjs';
+import './15-intensity.mjs';
