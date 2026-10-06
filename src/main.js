@@ -1,6 +1,6 @@
 import { rand, sleep, unlessAway } from './anim.js';
 import { hexToRgb, sequence } from './color.js';
-import { categoryName } from './credit.js';
+import { categoryName, numbered } from './credit.js';
 import { buildPalette } from './palette.js';
 import { imagesFrom } from './paste.js';
 import { categoryFor, direction, resist, springBack } from './gesture.js';
@@ -148,8 +148,10 @@ function cardRect() {
   return new DOMRect(c.x - w / 2, c.y - h / 2, w, h);
 }
 
-/** What a fresh card is called: its photo's category, or the first 16 characters of the file's name without its extension. */
-const defaultName = (file) => (file.category ? categoryName(file.category) : file.name.replace(/\.[^.]*$/, '').trim().slice(0, 16));
+/** What a fresh card is called: its photo's category (numbered if a card already has the name), or the first 16 characters of the file's name without its extension. */
+const defaultName = (file) => (file.category
+  ? numbered(categoryName(file.category), [...track.querySelectorAll('.card.palette')].map((c) => c.palette.name))
+  : file.name.replace(/\.[^.]*$/, '').trim().slice(0, 16));
 
 /** @param {boolean} last no more images are waiting, so the name field may take focus */
 async function analyze(file, last) {
