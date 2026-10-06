@@ -7,12 +7,11 @@ const NEAREST = 4; // a drone picks at random among this many closest matches, s
 /**
  * Seven square drones hop across the block grid. Each is given the colors its chip will show,
  * in order, and hunts them: it hops to the bloxel of its own cluster that looks most like the next
- * one, and comes to rest there. When it has rested enough times it flies to the bloxel nearest its
+ * one, and comes to rest there. When it has rested enough times it flies to the bloxel planted for its
  * chip's final color and parks. The promise resolves when all have parked.
  * @param {HTMLElement} host positioned layer the drones live in
  * @param {ReturnType<import('./bloxel.js').createBloxels>} grid
- * @param {{rgb: number[], final: number[]}[]} targets per cluster: its color (which bloxels are its own), and
- *        the color of the chip when it settles
+ * @param {{rgb: number[]}[]} targets per cluster: its color (which bloxels are its own)
  * @param {{next: (i: number) => {rgb: number[], hex: string}, onStop: (i: number, hex: string) => void, onFinish: (i: number) => void}} hooks
  *        `next` is the next color drone i is to hunt; `onStop` fires when it comes to rest on a match for it
  * @param {{stagger: number, roam: [number, number], hits: [number, number]}} opts ms between launches; the latest a drone
@@ -64,6 +63,12 @@ export function runScanners(host, grid, targets, { next, onStop, onFinish }, { s
     const here = Math.round(s.cy) * cols + Math.round(s.cx);
     const options = closest(s.i, rgb, NEAREST + 1).filter((c) => c !== here).slice(0, NEAREST);
     const c = options[randInt(0, options.length - 1)] ?? here;
+    hop(s, c % cols, Math.floor(c / cols), now);
+  };
+
+  /** Fly to the bloxel planted for drone `s`: exactly its chip's final color, wherever else that color is found. */
+  const home = (s, now) => {
+    const c = grid.planted(s.i);
     hop(s, c % cols, Math.floor(c / cols), now);
   };
 
@@ -119,7 +124,7 @@ export function runScanners(host, grid, targets, { next, onStop, onFinish }, { s
       onStop(s.i, s.wants);
       if (s.rests >= s.need || now >= s.deadline) {
         s.homing = true;
-        seek(s, targets[s.i].final, now);
+        home(s, now);
       } else {
         hunt(s, now);
       }
@@ -141,8 +146,8 @@ export function runScanners(host, grid, targets, { next, onStop, onFinish }, { s
         s.from = scale(s.from);
         s.to = scale(s.to);
         if (s.done) {
-          const c = closest(s.i, targets[s.i].final, 1)[0];
-          if (c !== undefined) Object.assign(s, { cx: c % cols, cy: Math.floor(c / cols) });
+          const c = grid.planted(s.i);
+          Object.assign(s, { cx: c % cols, cy: Math.floor(c / cols) });
         }
         s.el.style.width = s.el.style.height = `${SIZE * grid.cell}px`;
         place(s);

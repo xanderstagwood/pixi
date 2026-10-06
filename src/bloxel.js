@@ -1,5 +1,6 @@
 import { frames } from './anim.js';
 import { GROUND, glint, hexToRgb, hit, rgbToHex } from './color.js';
+import { plant } from './plant.js';
 import { createTwinkle } from './twinkle.js';
 import { centerDev, unit } from './pixel.js';
 
@@ -20,11 +21,15 @@ const luma = (r, g, b) => 0.2126 * r + 0.7152 * g + 0.0722 * b;
  *
  * It keeps a small private copy of the image so `resize()` can lay the grid out again if
  * the viewport changes mid-analysis; `release()` lets that copy go.
+ *
+ * Each seed (a chip's final color and where in the image it was sampled) is planted: it is made a real
+ * bloxel beside that spot, so a drone can land on exactly the color its chip ends up showing.
  * @param {HTMLCanvasElement} canvas
  * @param {{width: number, height: number}} source a canvas or bitmap; only read during this call
  * @param {() => {cols: number, rows: number}} cardCells the card's current size in cells
+ * @param {{hex: string, x: number, y: number}[]} seeds the colors to plant, with image-space fractions (0-1) of where each came from
  */
-export function createBloxels(canvas, source, cardCells) {
+export function createBloxels(canvas, source, cardCells, seeds = []) {
   const k = Math.min(1, KEEP_SIDE / Math.max(source.width, source.height));
   const img = Object.assign(document.createElement('canvas'), {
     width: Math.max(1, Math.round(source.width * k)),
@@ -35,6 +40,12 @@ export function createBloxels(canvas, source, cardCells) {
   const ctx = canvas.getContext('2d');
   const ground = hexToRgb(GROUND);
   const floor = luma(ground.r, ground.g, ground.b);
+
+  /** Image-space fractions (0-1) to the cell that holds them in layout `L`, clamped into the grid. */
+  const cellIn = (L, fx, fy) => ({
+    cx: Math.min(L.cols - 1, Math.max(0, Math.floor(((fx * iw - L.srcX) / L.srcW) * L.cols))),
+    cy: Math.min(L.rows - 1, Math.max(0, Math.floor(((fy * ih - L.srcY) / L.srcH) * L.rows))),
+  });
 
   let g; // the current layout
   let front = -1; // how far the wave has got: none yet, then along it, then past the end
@@ -87,7 +98,10 @@ export function createBloxels(canvas, source, cardCells) {
     const tctx = tiny.getContext('2d', { willReadFrequently: true });
     tctx.imageSmoothingQuality = 'high';
     tctx.drawImage(base, ox, oy, cols * cell, rows * cell, 0, 0, cols, rows);
-    const px = tctx.getImageData(0, 0, cols, rows).data;
+    const { rgba: px, cells: planted } = plant(
+      tctx.getImageData(0, 0, cols, rows).data, cols, rows,
+      seeds.map((d) => d.hex), seeds.map((d) => cellIn({ cols, rows, srcX, srcY, srcW, srcH }, d.x, d.y)),
+    );
     base.width = base.height = 0;
 
     // A block darker than the ground would sit inside a lighter grid line, which reads as a light
@@ -100,7 +114,7 @@ export function createBloxels(canvas, source, cardCells) {
     const count = cols * rows;
     const dist = Float32Array.from({ length: count }, (_, i) => Math.hypot(i % cols, Math.floor(i / cols)));
     const order = Array.from({ length: count }, (_, i) => i).sort((a, b) => dist[a] - dist[b]);
-    g = { dpr, cell, inset, full, cols, rows, ox, oy, srcX, srcY, srcW, srcH, px, shown, count, dist, order, maxDist: dist[order[count - 1]] || 1, c };
+    g = { dpr, cell, inset, full, cols, rows, ox, oy, srcX, srcY, srcW, srcH, px, planted, shown, count, dist, order, maxDist: dist[order[count - 1]] || 1, c };
   }
 
   const when = (i) => g.dist[i] / g.maxDist; // 0-1 along the sweep
@@ -145,10 +159,9 @@ export function createBloxels(canvas, source, cardCells) {
     /** The color cell `i` is drawn in, as hex: what a scanner resting on it is looking at. */
     color: (i) => rgbToHex({ r: g.shown[i * 4], g: g.shown[i * 4 + 1], b: g.shown[i * 4 + 2] }),
     /** Image-space fractions (0-1) to the cell that holds them, clamped into the grid. */
-    cellAt: (fx, fy) => ({
-      cx: Math.min(g.cols - 1, Math.max(0, Math.floor(((fx * iw - g.srcX) / g.srcW) * g.cols))),
-      cy: Math.min(g.rows - 1, Math.max(0, Math.floor(((fy * ih - g.srcY) / g.srcH) * g.rows))),
-    }),
+    cellAt: (fx, fy) => cellIn(g, fx, fy),
+    /** The cell seed `i` was planted in: exactly its color. */
+    planted: (i) => g.planted[i],
     /**
      * What a card keeps of this grid: every cell color as drawn, and which cell the viewport
      * centre (and so the card's centre) sits on. Lets a card of any size cut its own window.

@@ -33,10 +33,10 @@ export function createStage(el, canvas) {
   return {
     /**
      * Show the image through a window over `at` (the card), then open to the whole viewport.
-     * `cardCells` gives the card's current size in cells. Returns the bloxel grid.
+     * `cardCells` gives the card's current size in cells; `seeds` are the colors to plant in the grid (bloxel.js). Returns the bloxel grid.
      */
-    async open(image, at, cardCells) {
-      bloxels = createBloxels(canvas, image, cardCells);
+    async open(image, at, cardCells, seeds) {
+      bloxels = createBloxels(canvas, image, cardCells, seeds);
       fit();
       el.style.clipPath = clipFor(at);
       frame.hidden = false;

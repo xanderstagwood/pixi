@@ -115,7 +115,7 @@ async function analyze(file, last) {
   try {
     carousel.focus(Infinity, true);
     setStatus('EXPANDING');
-    const bloxels = await stage.open(work, cardRect(), cardCells);
+    const bloxels = await stage.open(work, cardRect(), cardCells, clusters.map((c, i) => ({ hex: candidates[i][keep[i]], x: c.x, y: c.y })));
 
     work.width = work.height = 0; // the source pixels are spent: the bloxel grid holds all that is kept
 
@@ -128,7 +128,7 @@ async function analyze(file, last) {
     stack.el.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 300, easing: 'steps(5)' });
 
     const rgbOf = (hex) => Object.values(hexToRgb(hex));
-    const targets = clusters.map((c, i) => ({ rgb: rgbOf(c.hex), final: rgbOf(candidates[i][keep[i]]) }));
+    const targets = clusters.map((c) => ({ rgb: rgbOf(c.hex) }));
     // What each chip will show is decided before anything moves, and the drone that hunts it goes to
     // the bloxel closest to that color: it comes to rest there, and only then does the chip shift.
     // When it parks, the chip lands on the kept color.
