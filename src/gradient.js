@@ -4,7 +4,7 @@ import { classify } from './perceive.js';
 
 // Orders a palette as one clean ramp and fits the chips' lightness to it. The hues each sit in one
 // block (a vivid red and a muted tan are two blocks, though their hues chain together), so they never alternate down the card; the neutrals have no hue to keep together and slot in by
-// lightness. Which family goes where is whatever needs the least change of lightness to make a ramp, with
+// lightness, except a tinted gray, which is a shadow of its hue and joins that block, so a hero is not boxed in between grays. Which family goes where is whatever needs the least change of lightness to make a ramp, with
 // warm to cool (or cool to warm) settling a tie. Then each chip's lightness is moved toward the ramp, keeping its
 // hue and chroma. A little of this is faking it: the picture's colors are shaded to read as a gradient.
 
@@ -16,7 +16,8 @@ const OVER = 10;
 const CHROMATIC = 0.04; // chroma at which a chip has a hue to keep together; below it, a neutral
 const BLOCK_NEAR = 14; // degrees: a chip this close in hue to a block's leader (its most vivid chip) belongs to that block
 const BLOCK_FAR = 22; // and one closer than this does too, unless its chroma is far from the leader's (a vivid red and a muted tan)
-const BLOCK_CHROMA = 2.2; // how many times more (or less) chroma than the leader counts as far // how much worse it is to ask a chip to move further than its cap
+const BLOCK_CHROMA = 2.2; // how many times more (or less) chroma than the leader counts as far
+const TINTED = 0.015; // a neutral with this much chroma is a shadow of the hue it leans to, and joins that hue's block
 
 const capOf = (role) => (role === 'dark' || role === 'light' ? 0 : role ? CAP.pop : CAP.free);
 
@@ -48,6 +49,12 @@ function blocksOf(seen) {
     let at = leaders.findIndex(same);
     if (at < 0) { leaders.push(i); at = leaders.length - 1; }
     block[i] = at;
+  });
+  seen.forEach((c, i) => {
+    if (block[i] !== 'neutral' || c.C < TINTED || !c.cap) return; // the anchors stay free: they are the ends of the ramp
+    const apart = (l) => Math.abs(((seen[l].h - c.h + 540) % 360) - 180);
+    const near = leaders.reduce((best, l, k) => (apart(l) < apart(leaders[best]) ? k : best), 0);
+    if (leaders.length && apart(leaders[near]) < BLOCK_FAR) block[i] = near;
   });
   return block;
 }

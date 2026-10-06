@@ -95,6 +95,19 @@ for (const roll of [0.1, 0.9]) {
   assert.equal(JSON.stringify(BLUE_RED), copy, 'and what was passed in is not changed');
 }
 
+// The dragonfly palette that came out chaotic: gray, rust, gray, red, because lightness sorted them. The warm grays are
+// shadows of the reds and browns, so they sit in those blocks, and the chroma rises and falls once down the card, not
+// again and again.
+{
+  const chips = [chip('#101615', 'dark'), chip('#37261F'), chip('#4C413D'), chip('#983923'), chip('#786D68'), chip('#EE3314', 'hero'), chip('#C19076')];
+  const peaks = (x) => x.filter((c, i) => i > 0 && i < x.length - 1 && c > x[i - 1] + 0.02 && c > x[i + 1] + 0.02).length;
+  for (let seed = 1; seed <= 12; seed++) {
+    const plan = gradient(chips, mulberry32(seed));
+    assert.ok(peaks(runOf(chips, plan, (h) => lch(h).C)) <= 1, `seed ${seed}: the chroma has one hump, not a zigzag`);
+    assert.equal(reversals(runOf(chips, plan, (h) => lch(h).L), 0.005), 0, `seed ${seed}: and the card is still one ramp`);
+  }
+}
+
 // With fitting off, only the order changes.
 {
   const plan = gradient(BLUE_RED, () => 0.1, false);
