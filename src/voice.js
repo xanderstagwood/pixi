@@ -30,7 +30,7 @@ export const MIXES = {
     ['unrolling'], ['unfolding'], ['waking'], ['peeking', 'at', 'into'], ['sneaking', 'up on', 'past'], ['tiptoeing', 'past', 'around'],
     ['waving', 'at'], ['stretching', 'toward'], ['yawning', 'at'], ['blinking', 'at'], ['skipping', 'past', 'toward'],
     ['dancing', 'in', 'with', 'around'], ['fluttering', 'against', 'near', 'over'], ['drifting', 'toward', 'past', 'through'],
-    ['tugging'], ['spying', 'on'],
+    ['tugging'], ['spying', 'on'], ['reciting', 'to', 'at'], ['breathing', 'on', 'into'], ['catching'], ['unwrapping'], ['shaking out'], ['spelling'],
   ],
   ANALYZING: [
     ['whispering', 'to'], ['bribing'], ['tickling'], ['counting'], ['sweet-talking'], ['arguing', 'with'], ['winking', 'at'],
@@ -38,11 +38,14 @@ export const MIXES = {
     ['dancing', 'in', 'with', 'around'], ['fluttering', 'against', 'near', 'over'], ['negotiating', 'with'], ['humming', 'to'],
     ['juggling'], ['polishing'], ['rummaging', 'through', 'among'], ['gossiping', 'with'], ['pestering'], ['charming'],
     ['wrestling', 'with'], ['tasting'], ['bargaining', 'with'], ['poking'], ['borrowing', 'from'],
+    ['reciting', 'to', 'at'], ['composing'], ['murmuring', 'to', 'into'], ['scattering'], ['blowing', 'on', 'across'], ['catching'], ['spelling'],
+    ['untangling'], ['sieving'], ['weighing'], ['dusting'], ['interrogating'],
   ],
   SHRINKING: [
     ['tucking in'], ['folding up'], ['hushing'], ['lulling'], ['shushing'], ['sealing up'], ['waving off'], ['hiding', 'from'],
     ['saying bye', 'to'], ['bundling up'], ['sprinkling', 'over'], ['dancing', 'in', 'with', 'around'],
     ['fluttering', 'against', 'near', 'over'], ['humming', 'to'], ['putting away'], ['patting'], ['singing', 'to'], ['drifting', 'off with'],
+    ['reciting', 'to', 'at'], ['breathing', 'on', 'into'], ['blowing', 'on', 'across'], ['scattering'], ['catching'], ['bottling'], ['stitching'], ['whistling', 'to', 'at'],
   ],
 };
 
@@ -54,6 +57,12 @@ export const SUBJECTS = [
   'the morning haze', 'a lost firefly', 'the puddles', 'the tall grass', 'the bright spots', 'an old rainbow',
   'the dark corners', 'the drifting fog', 'the cheeky yellow', 'the tiny stars', 'the warm light', 'the cold light',
   'a sneaky glow', 'the night sky', 'the paintbrush', 'the twinkly edges',
+  // fairy things
+  'a poem', 'the words', 'the air', 'the wind', 'the droplets', 'the dewdrops', 'the raindrops', 'the acorn caps', 'the moth wings',
+  'the toadstools', 'the cobwebs', 'a spoonful of dusk', 'the whispers', 'the pollen', 'a thimble of dawn', 'a tiny storm',
+  'a bedtime story', 'the secret garden', 'the silver thread', 'the pocket moon',
+  // and a few odd technical things
+  'the protons', 'the processor', 'a stray photon', 'the electrons', 'the bandwidth',
 ];
 
 /** The subject she very rarely meets. */

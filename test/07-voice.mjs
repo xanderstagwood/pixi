@@ -44,6 +44,15 @@ assert.ok(MIXES.ANALYZING.some((a) => a[0] === 'distracted' && a.includes('by'))
     assert.ok(everything.includes(wanted), `"${wanted}" is one of the things she says`);
   }
 }
+// Whimsical fairy things, with a few odd technical ones thrown in.
+{
+  const vocabulary = [...Object.values(MIXES).flat().map((a) => a[0]), ...SUBJECTS].join(' ');
+  for (const word of ['reciting', 'poem', 'words', 'air', 'wind', 'droplets', 'protons', 'pixels', 'processor']) {
+    assert.ok(new RegExp(`\\b${word}\\b`).test(vocabulary), `she knows about ${word}`);
+  }
+  assert.ok(SUBJECTS.length >= 50, 'there is a big world of subjects');
+}
+
 // The mind goblin is who she blames, always, when a drop is turned away: an error, a failure, someone trying to trick her.
 const TURNED_AWAY = EVENTS.filter((e) => !MIXES[e]);
 assert.deepEqual([...TURNED_AWAY].sort(), ['empty', 'not-image', 'too-big', 'too-many', 'unreadable'], 'every way a drop is turned away is blamed on the goblin');
