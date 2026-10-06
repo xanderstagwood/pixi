@@ -25,6 +25,13 @@ export function creditName(artist, drawn = DRAWN) {
 /** What a category's photos are called, which is also what a fresh card from them is named. */
 export const categoryName = (category) => (category === 'bird' ? 'birb' : category);
 
+/** `name`, or the lowest number after it that no name in `taken` has: lizard, lizard 2, lizard 3. */
+export function numbered(name, taken) {
+  let n = 1;
+  while (taken.includes(n > 1 ? `${name} ${n}` : name)) n++;
+  return n > 1 ? `${name} ${n}` : name;
+}
+
 /** Cuts `text` to fit `max` with `...` where it ends, or to nothing if even the dots will not fit. */
 export function ellipsize(text, max, widthOf) {
   if (widthOf(text) <= max) return text;
