@@ -1,7 +1,7 @@
 // inkFor: the text on a chip is a quieter cousin of the chip's own color, not black or white: its hue, a little of
 // its chroma, and a lightness far enough away to read. Where the chip is too mid-toned to reach it, the best that can be.
 import assert from 'node:assert/strict';
-import { hexToRgb, inkFor } from '../src/color.js';
+import { hexToRgb, inkFor, inkOver } from '../src/color.js';
 import { rgbToOklab, toOklch } from '../src/oklab.js';
 
 const lum = (hex) => { const { r, g, b } = hexToRgb(hex); const f = (v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; }; return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b); };
@@ -29,4 +29,19 @@ assert.ok(lch(inkFor('#101615')).L > lch('#101615').L, 'light ink on a dark chip
 }
 
 assert.equal(inkFor('#D52D11'), inkFor('#D52D11'), 'the same chip, the same ink');
+// Over several colors, as text sits over bloxels: one ink that reads on every one of them, tinted by their average.
+{
+  const light = ['#E0E0D3', '#C5B092', '#F0F0E8', '#D8CDB5'];
+  const ink = inkOver(light);
+  assert.ok(light.every((b) => contrast(ink, b) >= 4.5), `${ink} reads on every light bloxel`);
+  assert.ok(lch(ink).L < 0.5, 'and is a dark ink there');
+  const dark = ['#101010', '#2A2A2A', '#1A1710', '#3A3226'];
+  const pale = inkOver(dark);
+  assert.ok(dark.every((b) => contrast(pale, b) >= 4.5) && lch(pale).L > 0.5, 'a light ink over dark ones');
+  assert.ok(lch(ink).C > 0.005 && gap(lch(ink).h, 85) < 40, 'tinted toward the warm bloxels, not gray');
+  assert.equal(inkOver(['#D52D11']), inkFor('#D52D11'), 'one color is just inkFor');
+  const mixed = inkOver(['#101010', '#F0F0F0']);
+  assert.ok(contrast(mixed, '#101010') > 3 || contrast(mixed, '#F0F0F0') > 3, 'a mix of the two extremes still gives the best it can');
+}
+
 console.log('ok 20-ink');

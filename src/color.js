@@ -56,21 +56,29 @@ const INK_CONTRAST = 5; // what it asks of a label, a little over the 4.5 that r
 const INK_DARK = 0.2, INK_LIGHT = 0.985; // where it may go at the furthest: the card's own grays
 
 /**
- * The ink for text on a chip: the chip's own hue and a little of its chroma, as close to the chip's lightness as
- * still reads. Pure black and white would sit on the palette like stickers; this belongs to it.
- * A chip too mid-toned to reach the contrast gets the furthest ink on its better side.
+ * The ink for text over one or more colors (a chip, or the bloxels behind a line of text): the hue and a little of the
+ * chroma of their average, as close to its lightness as still reads on every one of them. Pure black and white would sit
+ * on the palette like stickers; this belongs to it. Over colors too mixed or too mid-toned to reach the contrast, the
+ * furthest ink on the better side.
  */
-export function inkFor(hex) {
-  const { L, C, h } = toOklch(rgbToOklab(hexToRgb(hex)));
+export function inkOver(backgrounds) {
+  const labs = backgrounds.map((hex) => rgbToOklab(hexToRgb(hex)));
+  const mean = { L: 0, a: 0, b: 0 };
+  for (const l of labs) { mean.L += l.L / labs.length; mean.a += l.a / labs.length; mean.b += l.b / labs.length; }
+  const { L, C, h } = toOklch(mean);
   const ink = (l) => rgbToHex(oklchToRgb({ L: l, C: Math.min(C, INK_CHROMA), h }));
-  const far = contrast(ink(INK_DARK), hex) >= contrast(ink(INK_LIGHT), hex) ? INK_DARK : INK_LIGHT;
-  let near = 0, away = 1; // how far from the chip's lightness toward `far`
+  const reads = (hex) => Math.min(...backgrounds.map((b) => contrast(hex, b)));
+  const far = reads(ink(INK_DARK)) >= reads(ink(INK_LIGHT)) ? INK_DARK : INK_LIGHT;
+  let near = 0, away = 1; // how far from the average lightness toward `far`
   for (let i = 0; i < 16; i++) {
     const t = (near + away) / 2;
-    if (contrast(ink(L + (far - L) * t), hex) >= INK_CONTRAST) away = t; else near = t;
+    if (reads(ink(L + (far - L) * t)) >= INK_CONTRAST) away = t; else near = t;
   }
   return ink(L + (far - L) * away);
 }
+
+/** The ink for text on a chip. */
+export const inkFor = (hex) => inkOver([hex]);
 
 const lifted = new Map();
 
