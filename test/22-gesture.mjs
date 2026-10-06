@@ -29,7 +29,7 @@ assert.equal(resist(60, 100), 60, 'it follows closely');
 assert.equal(resist(-60, 100), -60, 'in either direction');
 assert.equal(resist(100, 100), 100, 'right up to the limit');
 assert.ok(resist(130, 100) > 100 && resist(130, 100) < 130, 'past it, it moves less than the pointer');
-assert.ok(resist(1000, 100) < 110, 'and only a little further, however far the pointer goes');
+assert.ok(resist(1000, 100) <= 103, 'and only a little further, however far the pointer goes');
 assert.ok(resist(140, 100) > resist(120, 100), 'it never goes backward');
 
 // Let go, it springs back to the middle, overshoots and settles.

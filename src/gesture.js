@@ -1,7 +1,7 @@
 // What a click or a drag on the lizard button asks for, and how its icon moves meanwhile. No page in here.
 
 const FAR = 24; // font pixels a drag must go to choose
-const OVER = 8; // how much further than its limit the icon can be pulled
+const OVER = 3; // how much further than its limit the icon can be pulled: less than the margin left at the edge, so it never leaves the button
 const FRAMES = 32;
 
 /** The photo set a click asks for: left the lizard, right the crab, middle the birds, with alt the stag and the bones. */
